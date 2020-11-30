@@ -48,7 +48,8 @@ import CHERICC_Fat  :: *;
 // ================================================================
 // BSV project imports
 
-// None
+// TODO include this rather than importing it?
+import ISA_Decls_CSR :: *;
 
 // ================================================================
 
@@ -192,6 +193,19 @@ function  RegName    instr_rs2      (Instr x); return x [24:20]; endfunction
 function  RegName    instr_rs3      (Instr x); return x [31:27]; endfunction
 function  CSR_Addr   instr_csr      (Instr x); return unpack(x [31:20]); endfunction
 
+function CSR_SCR_Address instr_csr_scr_addr (Instr x);
+   let opcode = instr_opcode (x);
+   if (opcode == op_SYSTEM) begin
+      return fn_csr_addr_to_regname (instr_csr (x));
+   end else if (opcode == op_cap_Manip) begin
+      // SCR address is stored in RS2
+      return fn_scr_addr_to_regname (instr_rs2 (x));
+   end else begin
+      // placeholder
+      return RegFile_Index (CSR_DSCRATCH0);
+   end
+endfunction
+
 function  Bit #(12)  instr_I_imm12  (Instr x);
    return x [31:20];
 endfunction
@@ -230,6 +244,7 @@ typedef struct {
    RegName   rs2;
    RegName   rs3;
    CSR_Addr  csr;
+   CSR_SCR_Address csr_scr_addr;
 
    Bit #(3)  funct3;
    Bit #(5)  funct5;
@@ -261,7 +276,6 @@ function Decoded_Instr fv_decode (Instr instr);
 			 rs1:       instr_rs1      (instr),
 			 rs2:       instr_rs2      (instr),
 			 rs3:       instr_rs3      (instr),
-			 csr:       instr_csr      (instr),
 
 			 funct3:    instr_funct3   (instr),
 			 funct5:    instr_funct5   (instr),
@@ -1027,7 +1041,6 @@ function Bool fn_instr_is_csrrx (Instr  instr);
    let decoded_instr = fv_decode (instr);
    let opcode        = decoded_instr.opcode;
    let funct3        = decoded_instr.funct3;
-   let csr           = decoded_instr.csr;
    return ((opcode == op_SYSTEM) && f3_is_CSRR_any (funct3));
 endfunction
 
@@ -1076,6 +1089,49 @@ endfunction
 
 function Bool fn_csr_addr_priv_ok (CSR_Addr csr_addr, Priv_Mode priv_mode);
    return (priv_mode >= csr_addr [9:8]);
+endfunction
+
+typedef union tagged {
+   CSR_SCR_RegName RegFile_Index;
+   CSR_Addr        CSR_Address;
+   SCR_Addr        SCR_Address;
+} CSR_SCR_Address deriving (Eq, Bits, FShow);
+
+function CSR_SCR_Address fn_csr_addr_to_regname (CSR_Addr addr);
+   case (addr)
+      // machine mode
+      csr_addr_mscratch:   return RegFile_Index (CSR_MSCRATCH);
+      csr_addr_mtvec:      return RegFile_Index (SCR_MTCC);
+      csr_addr_mepc:       return RegFile_Index (SCR_MEPCC);
+      // supervisor mode
+      csr_addr_stvec:      return RegFile_Index (SCR_STCC);
+      csr_addr_sepc:       return RegFile_Index (SCR_SEPCC);
+      csr_addr_sscratch:   return RegFile_Index (CSR_MSCRATCH);
+      // debug
+      csr_addr_dscratch0:  return RegFile_Index (CSR_DSCRATCH0);
+      csr_addr_dscratch1:  return RegFile_Index (CSR_DSCRATCH1);
+      csr_addr_tselect:    return RegFile_Index (CSR_TSELECT);
+      csr_addr_tdata1:     return RegFile_Index (CSR_TDATA1);
+      csr_addr_tdata2:     return RegFile_Index (CSR_TDATA2);
+      csr_addr_tdata3:     return RegFile_Index (CSR_TDATA3);
+      default:             return CSR_Address (addr);
+   endcase
+endfunction
+
+function CSR_SCR_Address fn_scr_addr_to_regname (SCR_Addr addr);
+   case (addr)
+      scr_addr_MTDC:       return RegFile_Index (SCR_MTDC);
+      scr_addr_MTCC:       return RegFile_Index (SCR_MTCC);
+      scr_addr_MScratchC:  return RegFile_Index (SCR_MSCRATCHC);
+      scr_addr_MEPCC:      return RegFile_Index (SCR_MEPCC);
+
+      scr_addr_STDC:       return RegFile_Index (SCR_STDC);
+      scr_addr_STCC:       return RegFile_Index (SCR_STCC);
+      scr_addr_SScratchC:  return RegFile_Index (SCR_SSCRATCHC);
+      scr_addr_SEPCC:      return RegFile_Index (SCR_SEPCC);
+
+      default:             return SCR_Address (addr);
+   endcase
 endfunction
 
 // ----------------

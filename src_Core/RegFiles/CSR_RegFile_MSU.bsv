@@ -30,11 +30,13 @@ export  mkCSR_RegFile;
 // BSV library imports
 
 import ConfigReg    :: *;
+import DReg         :: *;
 import RegFile      :: *;
 import Vector       :: *;
 import FIFOF        :: *;
 import GetPut       :: *;
 import ClientServer :: *;
+import BRAMCore :: *;
 
 // BSV additional libs
 
@@ -63,6 +65,8 @@ import CHERICap     :: *;
 import CHERICC_Fat  :: *;
 `endif
 
+import ISA_Decls_CSR :: *;
+
 // ================================================================
 // Writing a CSR can update multiple CSRs (e.g., writing
 // FRM/FFLAGS/FCSR also updates MSTATUS.FS and MSTATUS.SD
@@ -85,30 +89,6 @@ typedef struct {
 interface CSR_RegFile_IFC;
    // Reset
    interface Server #(Token, Token) server_reset;
-
-   // CSR read (w.o. side effect)
-   (* always_ready *)
-   method Maybe #(Word) read_csr (CSR_Addr csr_addr);
-   (* always_ready *)
-   method Maybe #(Word) read_csr_port2 (CSR_Addr csr_addr);
-`ifdef ISA_CHERI
-   (* always_ready *)
-   method Maybe #(CapReg) read_scr (SCR_Addr scr_addr);
-`endif
-
-   // CSR read (w. side effect)
-   (* always_ready *)
-   method ActionValue #(Maybe #(Word)) mav_read_csr (CSR_Addr csr_addr);
-
-   // CSR write (returning new value)
-   (* always_ready *)
-   method ActionValue #(CSR_Write_Result) mav_csr_write (CSR_Addr csr_addr, WordXL word);
-
-`ifdef ISA_CHERI
-   // SCR write (returning new value)
-   (* always_ready *)
-   method ActionValue #(CapReg) mav_scr_write (SCR_Addr scr_addr, CapReg cap);
-`endif
 
 `ifdef ISA_F
    // Read FRM
@@ -205,9 +185,7 @@ interface CSR_RegFile_IFC;
 
    // Access permission
    (* always_ready *)
-   method AccessPerms access_permitted_1 (Priv_Mode  priv, CSR_Addr  csr_addr, Bool  read_not_write);
-   (* always_ready *)
-   method AccessPerms access_permitted_2 (Priv_Mode  priv, CSR_Addr  csr_addr, Bool  read_not_write);
+   method AccessPerms access_permitted (Priv_Mode  priv, CSR_Addr  csr_addr, Bool  read_not_write);
 `ifdef ISA_CHERI
    (* always_ready *)
    method AccessPerms access_permitted_scr (Priv_Mode  priv, SCR_Addr  scr_addr, Bool  read_not_write);
@@ -278,6 +256,20 @@ interface CSR_RegFile_IFC;
    // Debugging this module
 
    method Action debug;
+
+   // ----------------
+   // Register file access
+   (* always_ready *)
+   method Action read_req (CSR_SCR_Address regname);
+
+   (* always_ready *)
+   method CapPipe read_rsp ();
+
+   (* always_ready *)
+   method ActionValue #(CapPipe) write_req (CSR_SCR_Address regname, CapPipe data);
+
+   (* always_ready *)
+   method CapPipe fv_update_scr_via_csr (CapPipe old_scr, WordXL new_csr, Bool allow_sealed);
 endinterface
 
 // ================================================================
@@ -343,7 +335,7 @@ endfunction
 // ================================================================
 // Major states of mkCSR_RegFile module
 
-typedef enum { RF_RESET_START, RF_RUNNING } RF_State
+typedef enum { RF_RESET_START, RF_RESET_LOOP, RF_RUNNING } RF_State
 deriving (Eq, Bits, FShow);
 
 // ================================================================
@@ -358,7 +350,9 @@ endmodule
 
 // ================================================================
 
+`ifdef SYNTHESIZE_MODULES
 (* synthesize *)
+`endif
 module mkCSR_RegFile (CSR_RegFile_IFC);
 
 `ifdef RVFI_DII
@@ -392,21 +386,11 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 
    // scounteren hardwired to 0 for now
 
-   Reg #(Word)       rg_sscratch  <- mkCSRReg;
    Reg #(MCause)     rg_scause    <- mkCSRReg;
 `ifdef ISA_CHERI
+   // STCC, STDC, SEPCC, SSCRATCHC and SSCRATCH are all held in the BRAM
+   // and so are STVEC and SEPC since they extend the SCRs
    Reg #(XCCSR)      rg_sccsr     <- mkCSRReg;
-   Reg #(CapReg)     rg_stcc      <- mkReg(nullCap);
-   CapPipe           rg_stcc_unpacked = cast(rg_stcc);
-   Reg #(CapReg)     rg_stdc      <- mkReg(nullCap);
-   CapPipe           rg_stdc_unpacked = cast(rg_stdc);
-   Reg #(CapReg)     rg_sscratchc <- mkReg(nullCap);
-   CapPipe           rg_sscratchc_unpacked = cast(rg_sscratchc);
-   Reg #(CapReg)     rg_sepcc     <- mkReg(nullCap);
-   CapPipe           rg_sepcc_unpacked = cast(rg_sepcc);
-
-   let               rg_stvec = word_to_mtvec(getOffset(rg_stcc_unpacked));
-   let               rg_sepc  = getOffset(rg_sepcc_unpacked);
 `else
    Reg #(MTVec)      rg_stvec     <- mkCSRReg;
    Reg #(Word)       rg_sepc      <- mkCSRReg;
@@ -436,23 +420,13 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 
    Reg #(MCounteren) rg_mcounteren <- mkCSRReg;
 
-   Reg #(Word)       rg_mscratch <- mkCSRReg;
    Reg #(MCause)     rg_mcause   <- mkCSRReg;
    Reg #(Word)       rg_mtval    <- mkCSRReg;
 
 `ifdef ISA_CHERI
+   // MTCC, MTDC, MEPCC, MSCRATCHC and MSCRATCH are all held in the BRAM
+   // and so are MTVEC and MEPC since they extend the SCRs
    Reg #(XCCSR)      rg_mccsr    <- mkCSRReg;
-   Reg #(CapReg)     rg_mtcc      <- mkReg(nullCap);
-   CapPipe           rg_mtcc_unpacked = cast(rg_mtcc);
-   Reg #(CapReg)     rg_mtdc      <- mkReg(nullCap);
-   CapPipe           rg_mtdc_unpacked = cast(rg_mtdc);
-   Reg #(CapReg)     rg_mscratchc <- mkReg(nullCap);
-   CapPipe           rg_mscratchc_unpacked = cast(rg_mscratchc);
-   Reg #(CapReg)     rg_mepcc     <- mkReg(nullCap);
-   CapPipe           rg_mepcc_unpacked = cast(rg_mepcc);
-
-   let               rg_mtvec = word_to_mtvec(getOffset(rg_mtcc_unpacked));
-   let               rg_mepc  = getOffset(rg_mepcc_unpacked);
 `else
    Reg #(MTVec)      rg_mtvec    <- mkCSRReg;
    Reg #(Word)       rg_mepc     <- mkCSRReg;
@@ -495,27 +469,41 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
    CSR_Addr no_of_ctrs = 0;
 `endif
 
-   // Debug/Trace
-   Reg #(WordXL)    rg_tselect <- mkCSRReg;
-   Reg #(WordXL)    rg_tdata1  <- mkCSRReg;
-   Reg #(WordXL)    rg_tdata2  <- mkCSRReg;
-   Reg #(WordXL)    rg_tdata3  <- mkCSRReg;
-
    // Debug
+   // dscratch{0,1}, tdata{1,2,3} and tselect are held in the BRAM
    Reg #(Bit #(32)) rg_dcsr      <- mkCSRReg;    // Is 32b even in RV64
    Reg #(CapPipe)   rg_dpcc      <- mkCSRReg;
-   Reg #(WordXL)    rg_dscratch0 <- mkCSRReg;
-   Reg #(WordXL)    rg_dscratch1 <- mkCSRReg;
 
    // Non-maskable interrupt
    Reg #(Bool)    rg_nmi <- mkReg (False);
    Reg #(WordXL)  rg_nmi_vector <- mkCSRReg;
 
+   // BRAM Instantiation
+   BRAM_DUAL_PORT #(CSR_SCR_RegName, CapReg) bram <- mkBRAMCore2 (valueOf (TExp #(SizeOf #(CSR_SCR_RegName))), False);
+
+   // whether the read value should come directly from BRAM or from reading the CSR whose
+   // address is in rg_csr_addr
+   Reg #(Bool) rg_read_from_bram <- mkDReg (False);
+
+   // the address of the csr that was last requested in read_req. Used for returning requested
+   // CSR reads a cycle later to improve critical path
+   Reg #(CSR_Addr) rg_csr_addr <- mkRegU;
+
+   // only use the first port in the BRAM for reads, and only use the second
+   // for writing
+   // this is to try to get it to infer only one FPGA BRAM
+   let read_port = bram.a;
+   let write_port = bram.b;
+
    // ================================================================
    // BEHAVIOR: RESET
    // Initialize some CSRs.
 
+   // used to iterate through the BRAM to reset SCR values
+   Reg #(CSR_SCR_RegName) rg_i <- mkRegU;
+
    rule rl_reset_start (rg_state == RF_RESET_START);
+      // reset hardware register values
       // User-level CSRs
 `ifdef ISA_F
       rg_fflags <= 0;
@@ -525,8 +513,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       // Supervisor-level CSRs
 `ifdef ISA_PRIV_S
 `ifdef ISA_CHERI
-      rg_stcc       <= soc_map.m_mtcc_reset_value;
-      rg_sepcc      <= soc_map.m_mepcc_reset_value;
       rg_sccsr      <= XCCSR{cheri_exc_code: 0, cheri_exc_reg: 0};
 `else
       rg_stvec    <= word_to_mtvec (truncate (soc_map.m_mtvec_reset_value));
@@ -542,8 +528,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       csr_mip.reset;
 
 `ifdef ISA_CHERI
-      rg_mtcc       <= soc_map.m_mtcc_reset_value;
-      rg_mepcc      <= soc_map.m_mepcc_reset_value;
       rg_mccsr      <= XCCSR{cheri_exc_code: 0, cheri_exc_reg: 0};
 `else
       rg_mtvec      <= word_to_mtvec (truncate (soc_map.m_mtvec_reset_value));
@@ -554,9 +538,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       rg_mideleg    <= 0;
 `endif
       rg_mcounteren <= mcounteren_reset_value;
-
-      rg_tselect    <= 0;
-      rg_tdata1     <= 0;    // ISA test rv64mi-p-breakpoint assumes reset value 0.
 
       rw_minstret.wset (0);
 
@@ -588,7 +569,28 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       rg_nmi        <= False;
       rg_nmi_vector <= truncate (soc_map.m_nmivec_reset_value);
 
-      rg_state <= RF_RUNNING;
+      // start looping through the BRAM
+      rg_i <= minBound;
+      rg_state <= RF_RESET_LOOP;
+   endrule
+
+   rule rl_reset_loop (rg_state == RF_RESET_LOOP);
+      case (rg_i)
+         SCR_MTCC, SCR_MEPCC, SCR_STCC, SCR_SEPCC: begin
+            write_port.put (True, rg_i, almightyCap);
+         end
+         default: begin
+            write_port.put(True, rg_i, nullCap);
+         end
+      endcase
+
+      if (rg_i == maxBound) begin
+         // we've just reset the last SCR register, so the reset is finished
+         rg_state <= RF_RUNNING;
+      end
+
+      let next = pack (rg_i) + 1;
+      rg_i <= unpack (next);
    endrule
 
    // ================================================================
@@ -812,30 +814,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
    endfunction
 `endif
 
-`ifdef ISA_CHERI
-   function Maybe #(CapReg) fv_scr_read (SCR_Addr scr_addr);
-       Maybe #(CapReg) m_scr_value = tagged Invalid;
-
-       case (scr_addr)
-           //pcc and ddc handled externally
-
-`ifdef ISA_PRIV_S
-           scr_addr_STCC: m_scr_value = tagged Valid rg_stcc;
-           scr_addr_STDC: m_scr_value = tagged Valid rg_stdc;
-           scr_addr_SScratchC: m_scr_value = tagged Valid rg_sscratchc;
-           scr_addr_SEPCC: m_scr_value = tagged Valid rg_sepcc;
-`endif
-
-           scr_addr_MTCC: m_scr_value = tagged Valid rg_mtcc;
-           scr_addr_MTDC: m_scr_value = tagged Valid rg_mtdc;
-           scr_addr_MScratchC: m_scr_value = tagged Valid rg_mscratchc;
-           scr_addr_MEPCC: m_scr_value = tagged Valid rg_mepcc;
-       endcase
-
-       return m_scr_value;
-   endfunction
-`endif
-
    // ----------------
    // CSR reads (no side effect)
    // Returns Invalid for invalid CSR addresses or access-mode violations
@@ -909,11 +887,8 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	    csr_addr_sedeleg:    m_csr_value = tagged Valid zeroExtend (sedeleg);
 	    csr_addr_sideleg:    m_csr_value = tagged Valid zeroExtend (sideleg);
 	    csr_addr_sie:        m_csr_value = tagged Valid (csr_mie.mv_sie_read);
-	    csr_addr_stvec:      m_csr_value = tagged Valid (mtvec_to_word (rg_stvec));
 	    csr_addr_scounteren: m_csr_value = tagged Valid 0;
 
-	    csr_addr_sscratch:   m_csr_value = tagged Valid rg_sscratch;
-	    csr_addr_sepc:       m_csr_value = tagged Valid ((misa.c == 1'b1) ? rg_sepc : (rg_sepc & (~ 2)));
 	    csr_addr_scause:     m_csr_value = tagged Valid (mcause_to_word (rg_scause));
 	    csr_addr_stval:      m_csr_value = tagged Valid rg_stval;
 	    csr_addr_sip:        m_csr_value = tagged Valid (csr_mip.mv_sip_read);
@@ -936,11 +911,8 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	    csr_addr_mstatus:    m_csr_value = tagged Valid (csr_mstatus.mv_read);
 	    csr_addr_misa:       m_csr_value = tagged Valid (misa_to_word (misa));
 	    csr_addr_mie:        m_csr_value = tagged Valid (csr_mie.mv_read);
-	    csr_addr_mtvec:      m_csr_value = tagged Valid (mtvec_to_word (rg_mtvec));
 	    csr_addr_mcounteren: m_csr_value = tagged Valid (mcounteren_to_word (rg_mcounteren));
 
-	    csr_addr_mscratch:   m_csr_value = tagged Valid rg_mscratch;
-	    csr_addr_mepc:       m_csr_value = tagged Valid ((misa.c == 1'b1) ? rg_mepc : (rg_mepc & (~ 2)));
 	    csr_addr_mcause:     m_csr_value = tagged Valid (mcause_to_word (rg_mcause));
 	    csr_addr_mtval:      m_csr_value = tagged Valid rg_mtval;
 	    csr_addr_mip:        m_csr_value = tagged Valid (csr_mip.mv_read);
@@ -981,11 +953,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 
 	    csr_addr_mcountinhibit: m_csr_value = tagged Valid ctr_inhibit;
 
-	    csr_addr_tselect:  m_csr_value = tagged Valid rg_tselect;
-	    csr_addr_tdata1:   m_csr_value = tagged Valid rg_tdata1;
-	    csr_addr_tdata2:   m_csr_value = tagged Valid rg_tdata2;
-	    csr_addr_tdata3:   m_csr_value = tagged Valid rg_tdata3;
-
 `ifdef INCLUDE_GDB_CONTROL
 	    csr_addr_dcsr:       begin
 				    Bit #(32) dcsr_nmip_mask = 'b_1000;
@@ -995,8 +962,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 				    m_csr_value = tagged Valid zeroExtend (dcsr);
 				 end
 	    csr_addr_dpc:        m_csr_value = tagged Valid getOffset(rg_dpcc);
-	    csr_addr_dscratch0:  m_csr_value = tagged Valid rg_dscratch0;
-	    csr_addr_dscratch1:  m_csr_value = tagged Valid rg_dscratch1;
 `endif
 
 	    default: m_csr_value = tagged Invalid;
@@ -1120,33 +1085,8 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	       csr_addr_sie:        begin
 				       new_csr_value <- csr_mie.mav_sie_write (misa, wordxl);
 				    end
-	       csr_addr_stvec:      begin
-				       let stvec     = word_to_mtvec (wordxl);
-				       new_csr_value = mtvec_to_word (stvec);
-`ifdef ISA_CHERI
-				       rg_stcc      <= cast(update_scr_via_csr(rg_stcc_unpacked, new_csr_value, False));
-`else
-				       rg_stvec     <= stvec;
-`endif
-				    end
 	       csr_addr_scounteren: new_csr_value = 0;    // Hardwired to zero
 
-	       csr_addr_sscratch:   begin
-				       new_csr_value = wordxl;
-				       rg_sscratch  <= new_csr_value;
-				    end
-	       csr_addr_sepc:       begin
-`ifdef ISA_C
-				       new_csr_value = (wordxl & (~ 1));    // sepc [0] always zero
-`else
-				       new_csr_value = (wordxl & (~ 3));    // sepc [1:0] always zero
-`endif
-`ifdef ISA_CHERI
-				       rg_sepcc     <= cast(update_scr_via_csr(rg_sepcc_unpacked, new_csr_value, False));
-`else
-				       rg_sepc      <= new_csr_value;
-`endif
-				    end
 	       csr_addr_scause:     begin
 				       let mcause    = word_to_mcause (wordxl);
 				       new_csr_value = mcause_to_word (mcause);
@@ -1195,35 +1135,10 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	       csr_addr_mie:        begin
 				       new_csr_value <- csr_mie.mav_write (misa, wordxl);
 				    end
-	       csr_addr_mtvec:      begin
-				       let mtvec     = word_to_mtvec (wordxl);
-				       new_csr_value = mtvec_to_word (mtvec);
-`ifdef ISA_CHERI
-				       rg_mtcc      <= cast(update_scr_via_csr(rg_mtcc_unpacked, new_csr_value, False));
-`else
-				       rg_mtvec     <= mtvec;
-`endif
-				    end
 	       csr_addr_mcounteren: begin
 				       let mcounteren = word_to_mcounteren(wordxl);
 				       new_csr_value  = mcounteren_to_word (mcounteren);
 				       rg_mcounteren <= mcounteren;
-				    end
-	       csr_addr_mscratch:   begin
-				       new_csr_value = wordxl;
-				       rg_mscratch  <= new_csr_value;
-				    end
-	       csr_addr_mepc:       begin
-`ifdef ISA_C
-				       new_csr_value = (wordxl & (~ 1));    // mepc [0] always zero
-`else
-				       new_csr_value = (wordxl & (~ 3));    // mepc [1:0] always zero
-`endif
-`ifdef ISA_CHERI
-				       rg_mepcc     <= cast(update_scr_via_csr(rg_mepcc_unpacked, new_csr_value, False));
-`else
-				       rg_mepc      <= new_csr_value;
-`endif
 				    end
 	       csr_addr_mcause:     begin
 				       let mcause    = word_to_mcause (wordxl);
@@ -1299,28 +1214,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 				       new_csr_value = 0;
 `endif
 				   end
-	       csr_addr_tselect:   begin
-				      // Until we implement trigger functionality,
-				      // return tselect always contains 0
-				      new_csr_value = 0;    // wordxl
-				      rg_tselect   <= new_csr_value;
-				   end
-	       csr_addr_tdata1:    begin
-				      // Until we implement trigger functionality,
-				      // force 'type' field ([xlen-1:xlen-4]) to zero
-				      // meaning: 'There is no trigger at this tselect'
-				      new_csr_value = (wordxl & ('1 >> 4));
-				      rg_tdata1    <= new_csr_value;
-				   end
-	       csr_addr_tdata2:    begin
-				      new_csr_value = wordxl;
-				      rg_tdata2    <= new_csr_value;
-				   end
-	       csr_addr_tdata3:    begin
-				      new_csr_value = wordxl;
-				      rg_tdata3    <= new_csr_value;
-				   end
-
 `ifdef INCLUDE_GDB_CONTROL
 	       csr_addr_dcsr:       begin
 				       Bit #(32) new_dcsr
@@ -1341,14 +1234,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 				       new_csr_value = wordxl;
 				       rg_dpcc      <= setOffset(rg_dpcc, new_csr_value).value; //TODO unrepresentable?
 				    end
-	       csr_addr_dscratch0:  begin
-				       new_csr_value = wordxl;
-				       rg_dscratch0 <= new_csr_value;
-				    end
-	       csr_addr_dscratch1:  begin
-				       new_csr_value = wordxl;
-				       rg_dscratch1 <= new_csr_value;
-				    end
 `endif
 
 	       default: success = False;
@@ -1362,90 +1247,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 				  m_new_csr_value2: m_new_csr_value2};
       endactionvalue
    endfunction: fav_csr_write
-
-`ifdef ISA_CHERI
-
-   // ----------------------------------------------------------------
-   // SCR writes
-
-   function ActionValue #(CapReg) fav_scr_write (SCR_Addr scr_addr, CapReg cap);
-      actionvalue
-	 Bool    success = True;
-	 CapReg  result  = nullCap;
-	 CapPipe capUnpacked = cast(cap);
-
-	    case (scr_addr)
-`ifdef ISA_PRIV_S
-         scr_addr_STCC: begin
-             capUnpacked = update_scr_via_csr(capUnpacked, mtvec_to_word(word_to_mtvec(getOffset(capUnpacked))), False);
-             // This can be done much more efficiently by breaking into the compressed cap format
-             if (getBaseAlignment(capUnpacked) == 0) begin
-                rg_stcc <= cast(capUnpacked);
-                result = cast(capUnpacked);
-             end
-         end
-         scr_addr_STDC: begin
-             rg_stdc <= cap;
-             result = cap;
-         end
-         scr_addr_SEPCC: begin
-             let newOffset = getOffset(capUnpacked);
-`ifdef ISA_C
-             Bool changeMade = newOffset[0] != 1'b0;
-             newOffset[0] = 1'b0;
-`else
-             Bool changeMade = newOffset[1:0] != 2'b0;
-             newOffset[1:0] = 2'b0;
-`endif
-             capUnpacked = update_scr_via_csr(capUnpacked, newOffset, !changeMade);
-             rg_sepcc <= cast(capUnpacked);
-             result = cast(capUnpacked);
-         end
-         scr_addr_SScratchC: begin
-             rg_sscratchc <= cap;
-             result = cap;
-         end
-`endif
-         scr_addr_MTCC: begin
-             capUnpacked = update_scr_via_csr(capUnpacked, mtvec_to_word(word_to_mtvec(getOffset(capUnpacked))), False);
-             // This can be done much more efficiently by breaking into the compressed cap format
-             if (getBaseAlignment(capUnpacked) == 0) begin
-                rg_mtcc <= cast(capUnpacked);
-                result = cast(capUnpacked);
-             end
-         end
-         scr_addr_MTDC: begin
-             rg_mtdc <= cap;
-             result = cap;
-         end
-         scr_addr_MEPCC: begin
-             let newOffset = getOffset(capUnpacked);
-`ifdef ISA_C
-             Bool changeMade = newOffset[0] != 1'b0;
-             newOffset[0] = 1'b0;
-`else
-             Bool changeMade = newOffset[1:0] != 2'b0;
-             newOffset[1:0] = 2'b0;
-`endif
-             capUnpacked = update_scr_via_csr(capUnpacked, newOffset, !changeMade);
-             rg_mepcc <= cast(capUnpacked);
-             result = cast(capUnpacked);
-         end
-         scr_addr_MScratchC: begin
-             rg_mscratchc <= cap;
-             result = cap;
-         end
-	       default: success = False;
-	    endcase
-
-	 if ((! success) && (cfg_verbosity > 1))
-	    $display ("%0d: ERROR: SCR-write addr 0x%0h val ", rg_mcycle, scr_addr, fshow(cap), " not successful");
-
-	 return result;
-      endactionvalue
-   endfunction: fav_scr_write
-
-`endif
 
    // Access permission
    function AccessPerms fv_access_permitted (Priv_Mode  priv, CSR_Addr  csr_addr,  Bool read_not_write);
@@ -1541,41 +1342,6 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       endinterface
    endinterface
 
-   // CSR read (w.o. side effect)
-   method Maybe #(Word) read_csr (CSR_Addr csr_addr);
-      return fv_csr_read (csr_addr);
-   endmethod
-
-   // CSR read (w.o. side effect)
-   method Maybe #(Word) read_csr_port2 (CSR_Addr csr_addr);
-      return fv_csr_read (csr_addr);
-   endmethod
-
-`ifdef ISA_CHERI
-   method Maybe #(CapReg) read_scr (SCR_Addr scr_addr);
-      return fv_scr_read (scr_addr);
-   endmethod
-`endif
-
-   // CSR read (w. side effect)
-   method ActionValue #(Maybe #(Word)) mav_read_csr (CSR_Addr csr_addr);
-      return fv_csr_read (csr_addr);
-   endmethod
-
-   // CSR write
-   method ActionValue #(CSR_Write_Result) mav_csr_write (CSR_Addr csr_addr, WordXL word);
-      let result <- fav_csr_write (csr_addr, word);
-      return result;
-   endmethod
-
-`ifdef ISA_CHERI
-   // SCR write
-   method ActionValue #(CapReg) mav_scr_write (SCR_Addr scr_addr, CapReg cap);
-      let result <- fav_scr_write (scr_addr, cap);
-      return result;
-   endmethod
-`endif
-
    // Read MISA
    method MISA read_misa;
       return misa;
@@ -1640,6 +1406,8 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
    endmethod
 
    // CSR Trap actions
+   // In CHERI, a read request to xTCC is required the cycle before this
+   // is invoked
    method ActionValue #(Trap_Info_CSR)
           csr_trap_actions (Priv_Mode  from_priv,
 `ifdef ISA_CHERI
@@ -1666,6 +1434,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
        pc
 `endif
                      , pack (interrupt), exc_code, xtval);
+`ifndef ISA_CHERI
 `ifdef ISA_PRIV_S
 	 fa_show_trap_csrs (s_Priv_Mode, csr_mip.mv_read, csr_mie.mv_read, 0, 0, rg_scause,
 			    csr_mstatus.mv_sstatus_read,
@@ -1674,6 +1443,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	 fa_show_trap_csrs (m_Priv_Mode, csr_mip.mv_read, csr_mie.mv_read, rg_medeleg, rg_mideleg, rg_mcause,
 			    csr_mstatus.mv_read,
 			    rg_mtvec, rg_mepc, rg_mtval);
+`endif
       end
 
       let new_priv    = (nmi
@@ -1692,30 +1462,48 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 `ifdef ISA_CHERI
       let capexc = XCCSR {cheri_exc_reg: cheri_exc_reg, cheri_exc_code: cheri_exc_code};
       if (exc_code == exc_code_CHERI) xtval = capexc_to_xtval(capexc);
-      let xtcc = ?;
+
+      // In the cycle before this was called, we would have already selected between STCC and MTCC
+      CapPipe xtcc = cast (read_port.read);
+      WordXL xtcc_offset = getOffset (xtcc);
+      let xtvec = word_to_mtvec (xtcc_offset);
 `endif
 
       let  xcause      = (nmi
 			  ? MCause {interrupt: 0, exc_code: 0 }
 			  : MCause {interrupt: pack (interrupt), exc_code: exc_code});
-      let  is_vectored = (rg_mtvec.mode == VECTORED);
+      let  is_vectored = (xtvec.mode == VECTORED);
+`ifdef ISA_CHERI
+      // only used for debug printing
+      Addr exc_pc      = (extend (xtvec.base)) << 2;
+`ifdef ISA_C
+      Addr exc_addr    = {truncateLSB (getAddr (xtcc)), 1'b0};
+`else
+      Addr exc_addr    = {truncateLSB (getAddr (xtcc)), 2'b00};
+`endif
+`else
       Addr exc_pc      = (extend (rg_mtvec.base)) << 2;
+`endif
 
       if (nmi) begin
 `ifdef ISA_CHERI
-   rg_mepcc   <= cast(pcc);
+         write_port.put (True, SCR_MEPCC, cast (pcc));
 `else
 	 rg_mepc    <= pc;
 `endif
 	 rg_mtval   <= xtval;
 	 rg_mcause  <= xcause;
+	 // TODO when CHERI is enabled, exc_pc is only used for debug printing.
+         // This means that for vectored interrupts the new PCC doesn't get
+         // offset using the interrupt code.
 	 exc_pc      = rg_nmi_vector;
+	 // potential solution (quite costly):
+	 //exc_addr    = getBase (xtcc) + rg_nmi_vector;
 	 is_vectored = False;
       end
       else if (new_priv == m_Priv_Mode) begin
 `ifdef ISA_CHERI
-   rg_mepcc   <= cast(pcc);
-   xtcc        = rg_mtcc_unpacked;
+         write_port.put (True, SCR_MEPCC, cast (pcc));
 	 if (exc_code == exc_code_CHERI) rg_mccsr   <= capexc;
 `else
 	 rg_mepc    <= pc;
@@ -1726,27 +1514,41 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 `ifdef ISA_PRIV_S
       else if (new_priv == s_Priv_Mode) begin
 `ifdef ISA_CHERI
-   rg_sepcc   <= cast(pcc);
-   xtcc        = rg_stcc_unpacked;
-   if (exc_code == exc_code_CHERI) rg_sccsr   <= capexc;
+         write_port.put (True, SCR_SEPCC, cast (pcc));
+         if (exc_code == exc_code_CHERI) rg_sccsr   <= capexc;
 `else
 	 rg_sepc    <= pc;
 `endif
 	 rg_scause  <= xcause;
 	 rg_stval   <= xtval;
 
-	 is_vectored = (rg_stvec.mode == VECTORED);
 	 new_status  = fv_mstatus_to_sstatus (new_status);
-	 exc_pc      = (extend (rg_stvec.base)) << 2;
+`ifndef ISA_CHERI
+	 is_vectored = (xtvec.mode == VECTORED);
+	 exc_pc      = (extend (xtvec.base)) << 2;
+`endif
       end
 `endif
       // TODO: if (new_priv == u_Priv_Mode)
 
       // Adjust the exception PC if xTVEC mode bits so indicate
+`ifdef ISA_CHERI
+      CapPipe exc_pcc = xtcc;
+`endif
       Addr vector_offset = (extend (exc_code)) << 2;
-      if (interrupt && is_vectored)
+      if (interrupt && is_vectored) begin
+         // unused in CHERI, apart from for debug printing
 	 exc_pc = exc_pc + vector_offset;
-   CapPipe exc_pcc  = setOffset(xtcc, exc_pc).value; //TODO representability check
+`ifdef ISA_CHERI
+         // In RV64, addAddrUnsafe takes an 11 bit input as its second argument.
+         // In RV32 the same argument is only 5 bits.
+         // The RISCV specification specifies at 16 different exception codes, which
+         // need 4 bits to be enumerated, so our offset needs to be at least 6 bits
+         // which is too big to be passed as the second element to an addAddrUnsafe
+         exc_addr = exc_addr + vector_offset;
+`endif
+      end
+      exc_pcc = setAddrUnsafe (xtcc, exc_addr); // TODO representability?
 
       if (cfg_verbosity > 1) begin
 	 $write ("    Return: new pc 0x%0h  ", exc_pc);
@@ -1768,6 +1570,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
    endmethod: csr_trap_actions
 
    // CSR RET actions (return from exception)
+   // In CHERI, a read request to xEPCC is required the cycle before this is invoked
    method ActionValue #(Tuple3 #(
 `ifdef ISA_CHERI
 				 CapPipe,
@@ -1777,11 +1580,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 				 Priv_Mode, Word)) csr_ret_actions (Priv_Mode from_priv);
       match { .new_mstatus, .to_priv } = fv_new_mstatus_on_ret (misa, csr_mstatus.mv_read, from_priv);
       csr_mstatus.ma_write (misa, new_mstatus);
-      CapPipe next_pcc = rg_mepcc_unpacked;
-`ifdef ISA_PRIV_S
-      if (from_priv != m_Priv_Mode)
-	 next_pcc = rg_sepcc_unpacked;
-`endif
+      CapPipe next_pcc = cast (read_port.read);
       if (getKind(next_pcc) == SENTRY)
          next_pcc = setKind(next_pcc, UNSEALED);
       return tuple3 (
@@ -1828,11 +1627,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 `endif
 
    // Access permission
-   method AccessPerms access_permitted_1 (Priv_Mode  priv, CSR_Addr  csr_addr,  Bool read_not_write);
-      return fv_access_permitted (priv, csr_addr, read_not_write);
-   endmethod
-
-   method AccessPerms access_permitted_2 (Priv_Mode  priv, CSR_Addr  csr_addr,  Bool read_not_write);
+   method AccessPerms access_permitted (Priv_Mode  priv, CSR_Addr  csr_addr,  Bool read_not_write);
       return fv_access_permitted (priv, csr_addr, read_not_write);
    endmethod
 
@@ -1960,6 +1755,101 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
       $display ("sie     = 0x%0h", csr_mie.mv_sie_read);
 `endif
    endmethod      
+
+   // ----------------
+   // Register file access
+   method Action read_req (CSR_SCR_Address addr);
+      if (cfg_verbosity > 1) begin
+         $display ("read request registered. addr: ", fshow(addr));
+      end
+      case (addr) matches
+         tagged RegFile_Index .name: begin
+            read_port.put (False, name, ?);
+            rg_read_from_bram <= True;
+         end
+         tagged CSR_Address .csr_addr: begin
+            rg_read_from_bram <= False;
+            rg_csr_addr <= csr_addr;
+         end
+         tagged SCR_Address .scr_addr: begin
+            // SCR that has not been implemented using the register file
+            // currently there are none of these, so this should never happen
+            // when executing correctly
+            if (cfg_verbosity > 1) begin
+               $display ("illegal scr access to addr ", fshow (addr));
+            end
+         end
+      endcase
+   endmethod
+
+   method CapPipe read_rsp ();
+      if (rg_read_from_bram) begin
+         return cast (read_port.read);
+      end else begin
+         let read_val = fv_csr_read (rg_csr_addr);
+         if (isValid (read_val)) begin
+            return nullWithAddr (read_val.Valid);
+         end else begin
+            return ?;
+         end
+      end
+   endmethod
+
+   method ActionValue #(CapPipe) write_req (CSR_SCR_Address addr, CapPipe data);
+      if (cfg_verbosity > 1) begin
+         $display ("write request, addr: ", fshow (addr), " value: ", fshow(data));
+      end
+      let val_to_write = data;
+      Bit #(2) base_lsb = getBaseAlignment (data);
+      case (addr) matches
+         tagged RegFile_Index .name: begin
+            // set the LSBs for SCRs that need it
+            case (name)
+               SCR_MEPCC, SCR_SEPCC: begin
+`ifdef ISA_C
+                  let new_addr = {truncateLSB (getAddr (data)), base_lsb[0]};
+`else
+                  let new_addr = {truncateLSB (getAddr (data)), base_lsb};
+`endif
+                  val_to_write = setAddrUnsafe (data, new_addr);
+               end
+               SCR_MTCC, SCR_STCC: begin
+                  val_to_write = maskAddr (data, signExtend (3'b101));
+               end
+            endcase
+            // if trying to write xTCC with a base that is not 4-byte aligned,
+            // don't write anything
+            if ((name != SCR_MTCC && name != SCR_STCC) || base_lsb == 0) begin
+               write_port.put (True, name, cast (val_to_write));
+               return val_to_write;
+            end else begin
+               // TODO find a better thing to return. Perhaps a Maybe?
+               return nullCap;
+            end
+         end
+         tagged CSR_Address .csr_addr: begin
+            let tmp <- fav_csr_write (csr_addr, getAddr (data));
+            return nullWithAddr (tmp.new_csr_value);
+         end
+         tagged SCR_Address .scr_addr: begin
+            // SCR that has not been implemented using the register file
+            // currently there are none of these, so this should never happen
+            // when executing correctly
+            if (cfg_verbosity > 1) begin
+               $display ("illegal scr write to addr ", fshow (addr), " with data ", fshow (data));
+            end
+            return ?;
+         end
+      endcase
+   endmethod
+
+   // This is defined here in order to allow sharing of the update_scr_via_csr function instantiation.
+   // Without this sharing, invoking the function multiple times in separate rules instantiates the
+   // hardware multiple times, whereas with the sharing it uses the same hardware and passes the
+   // different arguments to the hardware instantiation of the function.
+   method CapPipe fv_update_scr_via_csr (CapPipe old_scr, WordXL new_csr, Bool allow_sealed);
+      return update_scr_via_csr (old_scr, new_csr, allow_sealed);
+   endmethod
 endmodule
 
 // ================================================================
