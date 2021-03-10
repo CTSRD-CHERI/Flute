@@ -489,7 +489,7 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
    Word ctr_inhibit = zeroExtend ({ perf_counters.read_ctr_inhibit, ctr_inhibit_lsb });
    CSR_Addr no_of_ctrs = fromInteger (valueOf (No_Of_Ctrs));
 `else
-   Vector #(0, ReadOnly #(Bit #(Counter_Width))) ctrs = newVector;
+   Vector #(0, ReadOnly #(Bit #(64))) ctrs = newVector;
    Vector #(0, ReadOnly #(Word)) ctr_sels = newVector;
    Word ctr_inhibit = 0;
    CSR_Addr no_of_ctrs = 0;
@@ -1844,9 +1844,16 @@ module mkCSR_RegFile (CSR_RegFile_IFC);
 	      && (   ((csr_addr == csr_addr_cycle)   && (rg_mcounteren.cy == 0))
 		  || ((csr_addr == csr_addr_time)    && (rg_mcounteren.tm == 0))
 		  || ((csr_addr == csr_addr_instret) && (rg_mcounteren.ir == 0))
+`ifndef PERFORMANCE_MONITORING
 		  || ((csr_addr_hpmcounter3  <= csr_addr) && (csr_addr <= csr_addr_hpmcounter31))
 `ifdef RV32
 		  || ((csr_addr_hpmcounter3h <= csr_addr) && (csr_addr <= csr_addr_hpmcounter31h))
+`endif
+`else // PERFORMANCE_MONITORING
+		  || ((csr_addr_hpmcounter3  <= csr_addr) && (csr_addr <= csr_addr_hpmcounter31) && (rg_mcounteren.ctr[csr_addr - csr_addr_hpmcounter3] == 0))
+`ifdef RV32
+		  || ((csr_addr_hpmcounter3h <= csr_addr) && (csr_addr <= csr_addr_hpmcounter31h) && (rg_mcounteren.ctr[csr_addr - csr_addr_hpmcounter3h] == 0))
+`endif
 `endif
 		  ));
    endmethod

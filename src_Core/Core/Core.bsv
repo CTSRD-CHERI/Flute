@@ -140,6 +140,7 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
 `ifdef PERFORMANCE_MONITORING
    let axi4_mem_shim_slave_monitor <- monitorAXI4_Slave (axi4_mem_shim_slave);
    axi4_mem_shim_slave = axi4_mem_shim_slave_monitor.ifc;
+   let slave_events = to_vector (axi4_mem_shim_slave_monitor.events);
 `ifdef ISA_CHERI
 `ifndef NO_TAG_CACHE
    let axi4_mem_shim_master_monitor <- monitorAXI4_Master (axi4_mem_shim_master);
@@ -453,8 +454,10 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
 
 `ifdef PERFORMANCE_MONITORING
    rule rl_relay_external_events;
-      let slave_events = to_vector (axi4_mem_shim_slave_monitor.events);
-      let events = append (tag_cache_evts, append (slave_events, tag_cache_master_evts));
+      // External events are ordered here:
+      let events = slave_events;
+      events = append (tag_cache_master_evts, events);
+      events = append (tag_cache_evts, events);
       cpu.relay_external_events (to_large_vector (events));
    endrule
 `endif

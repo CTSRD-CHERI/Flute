@@ -182,7 +182,7 @@ typedef struct {
    Bool evt_1_BUSY_NO_CONSUME;
    Bool evt_2_BUSY_NO_CONSUME;
    Bool evt_3_BUSY_NO_CONSUME;
-   Bool evt_IMPRECISE_SETBOUND;
+   Bool evt_IMPRECISE_SETBOUNDS;
    Bool evt_UNREPRESENTABLE_CAP;
    Bool evt_MEM_CAP_LOAD;
    Bool evt_MEM_CAP_STORE;
@@ -997,7 +997,7 @@ module mkCPU (CPU_IFC);
 		     CapMem capMem = cast (capReg);
 		     events.evt_MEM_CAP_STORE_TAG_SET = isValidCap (capMem);
 		  end
-		  events.evt_IMPRECISE_SETBOUND =  ! stage1.out.data_to_stage2.check_exact_success;
+		  events.evt_IMPRECISE_SETBOUNDS = ! stage1.out.data_to_stage2.check_exact_success;
 		  events.evt_UNREPRESENTABLE_CAP = ! stage1.out.data_to_stage2.set_offset_in_bounds;
 `endif
 	       end
@@ -1262,9 +1262,15 @@ module mkCPU (CPU_IFC);
    Vector #(16, Bit #(Counter_Width)) dmem_evts_vec = to_large_vector (near_mem.dmem.events);
    Vector #(32, Bit #(Counter_Width)) external_evts_vec = to_large_vector (crg_external_evts [0]);
 
+   // Events are ordered here:
+   // 0x00: Null event
+   // 0x01 - 1f: Core events
    let events = append (null_evt, core_evts_vec);
+   // 0x20 - 2f: IMem events
    events = append (events, imem_evts_vec);
+   // 0x30 - 3f: DMem events
    events = append (events, dmem_evts_vec);
+   // 0x40 - 6f: External events
    events = append (events, external_evts_vec);
 
    (* fire_when_enabled, no_implicit_conditions *)

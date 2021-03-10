@@ -482,24 +482,41 @@ typedef struct {
    Bit#(1) ir;
    Bit#(1) tm;
    Bit#(1) cy;
+`ifdef PERFORMANCE_MONITORING
+   Bit#(29) ctr;
+`endif
 } MCounteren
 deriving (Bits, FShow);
 
 function WordXL mcounteren_to_word (MCounteren mc);
    return {0,
+`ifdef PERFORMANCE_MONITORING
+           mc.ctr,
+`endif
            mc.ir,
 	   mc.tm,
 	   mc.cy};
 endfunction
 
 function MCounteren word_to_mcounteren (WordXL x);
-   return MCounteren {ir: x[2],
-                      tm: x[1],
+`ifdef PERFORMANCE_MONITORING
+   Bit#(No_Of_Ctrs) ctrs = x[valueOf (No_Of_Ctrs)+2:3];
+`endif
+   return MCounteren {
+`ifdef PERFORMANCE_MONITORING
+		      ctr: {0, ctrs},
+`endif
+		      ir: x[2],
+		      tm: x[1],
 		      cy: x[0]};
 endfunction
 
 function MCounteren mcounteren_reset_value;
-   return MCounteren {ir: 1'b0,
+   return MCounteren {
+`ifdef PERFORMANCE_MONITORING
+                      ctr: 29'b0,
+`endif
+                      ir: 1'b0,
                       tm: 1'b0,
 		      cy: 1'b0};
 endfunction
@@ -738,6 +755,8 @@ endfunction
 // ================================================================
 // The width of individual counters
 
+`ifdef PERFORMANCE_MONITORING
+
 `ifndef COUNTER_WIDTH
 `define COUNTER_WIDTH 64
 `endif
@@ -752,5 +771,7 @@ typedef `NO_OF_CTRS No_Of_Ctrs;
 `define NO_OF_EVTS 96
 `endif
 typedef `NO_OF_EVTS No_Of_Evts;
+
+`endif
 
 // ================================================================
