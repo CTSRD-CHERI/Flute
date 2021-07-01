@@ -252,7 +252,7 @@ In the `builds/` directory, you can create a new sub-directory to
 build a new configuration of interest.  For example:
 
         $ cd  builds
-	$ Resources/mkBuild_Dir.py  ..  RV32CIxCHERI  bluesim
+	$ Resources/mkBuild_Dir.py  ..  RV64CIxCHERI  bluesim
 
 will create a new directory: `builds\RV32CIUxCHERI_<CPU>_bluesim`
 populated with a `Makefile` to compile and link a bluesim simulation
@@ -262,4 +262,8 @@ and run that simulator as usual:
         $ cd  builds/RV32CIUxCHERI_<CPU>_bluesim
         $ make compile simulator test isa_tests
 
+#### Clone submodules
+Use the following command to update submodule after cloneing the repostiory: 
+
+$ git submodule update --init --recursive
 ----------------------------------------------------------------
