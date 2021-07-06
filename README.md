@@ -262,8 +262,7 @@ and run that simulator as usual:
         $ cd  builds/RV32CIUxCHERI_<CPU>_bluesim
         $ make compile simulator test isa_tests
 
-#### Clone submodules
-Use the following command to update submodule after cloneing the repostiory: 
+The following command can be used to update submodule after cloning the `Flute`: 
 
-$ git submodule update --init --recursive
+        $ git submodule update --init --recursive
 ----------------------------------------------------------------
