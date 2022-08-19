@@ -53,6 +53,17 @@ import CHERICC_Fat :: *;
 // ================================================================
 // Interface
 
+interface ALU_IFC;
+   method ALU_Outputs get(ALU_Inputs args);
+endinterface
+
+(* synthesize *)
+module mkALU(ALU_IFC);
+   method ALU_Outputs get(ALU_Inputs args);
+       return fv_ALU(args);
+   endmethod
+endmodule
+
 interface CPU_Stage1_IFC;
    // ---- Reset
    interface Server #(Token, Token) server_reset;
@@ -119,6 +130,8 @@ module mkCPU_Stage1 #(Bit #(4)         verbosity,
 
    // ----------------
    // ALU
+
+   let alu <- mkALU();
 
    let decoded_instr  = rg_stage_input.decoded_instr;
    let funct3         = decoded_instr.funct3;
@@ -209,7 +222,7 @@ module mkCPU_Stage1 #(Bit #(4)         verbosity,
 				mstatus        : csr_regfile.read_mstatus,
 				misa           : csr_regfile.read_misa };
 
-   let alu_outputs = fv_ALU (alu_inputs);
+   let alu_outputs = alu.get (alu_inputs);
 
    let fall_through_pc = getPC(rg_pcc) + (rg_stage_input.is_i32_not_i16 ? 4 : 2);
 
