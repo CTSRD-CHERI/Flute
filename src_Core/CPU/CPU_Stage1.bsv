@@ -48,6 +48,17 @@ import CPU_Decode_C     :: *;
 // ================================================================
 // Interface
 
+interface ALU_IFC;
+   method ALU_Outputs get(ALU_Inputs args);
+endinterface
+
+(* synthesize *)
+module mkALU(ALU_IFC);
+   method ALU_Outputs get(ALU_Inputs args);
+       return fv_ALU(args);
+   endmethod
+endmodule
+
 interface CPU_Stage1_IFC;
    // ---- Reset
    interface Server #(Token, Token) server_reset;
@@ -104,6 +115,8 @@ module mkCPU_Stage1 #(Bit #(4)         verbosity,
 
    // ----------------
    // ALU
+
+   let alu <- mkALU();
 
    let decoded_instr  = rg_stage_input.decoded_instr;
    let funct3         = decoded_instr.funct3;
@@ -171,7 +184,7 @@ module mkCPU_Stage1 #(Bit #(4)         verbosity,
 				mstatus        : csr_regfile.read_mstatus,
 				misa           : csr_regfile.read_misa };
 
-   let alu_outputs = fv_ALU (alu_inputs);
+   let alu_outputs = alu.get (alu_inputs);
 
    let data_to_stage2 = Data_Stage1_to_Stage2 {pc            : rg_stage_input.pc,
 					       instr         : rg_stage_input.instr,
