@@ -2154,6 +2154,10 @@
         <spirit:fileType>verilogSource</spirit:fileType>
       </spirit:file>
       <spirit:file>
+        <spirit:name>../Verilog_RTL/mkALU.v</spirit:name>
+        <spirit:fileType>verilogSource</spirit:fileType>
+      </spirit:file>
+      <spirit:file>
         <spirit:name>../Verilog_RTL/mkMMU_DCache.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
       </spirit:file>
