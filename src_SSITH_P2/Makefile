@@ -120,6 +120,7 @@ Verilog_RTL:
 compile:  build_dir  Verilog_RTL
 	@echo  "INFO: Generating RTL into Verilog_RTL ..."
 	bsc -u -elab -verilog  $(RTL_GEN_DIRS)  $(BSC_COMPILATION_FLAGS) -p $(BSC_PATH)  $(TOPFILE)
+	bsc -u -elab -verilog  $(RTL_GEN_DIRS)  $(BSC_COMPILATION_FLAGS) -p $(BSC_PATH)  $(TOPFILE) && sed -i 's/^module/(* keep_hierarchy = "yes" *) module/g' Verilog_RTL/*.v
 	@echo  "INFO: Generated RTL into Verilog_RTL"
 	cp  Verilog_RTL/*  xilinx_ip/hdl/
 	@echo  "INFO: Copied RTL from  Verilog_RTL/  to  xilinx_ip/hdl/"
