@@ -107,7 +107,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkDM_Mem_Tap(CLK,
+(* keep_hierarchy = "yes" *) module mkDM_Mem_Tap(CLK,
 		    RST_N,
 
 		    slave_awvalid,

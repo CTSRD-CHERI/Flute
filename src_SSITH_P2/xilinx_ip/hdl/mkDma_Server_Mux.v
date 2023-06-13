@@ -143,7 +143,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkDma_Server_Mux(CLK,
+(* keep_hierarchy = "yes" *) module mkDma_Server_Mux(CLK,
 			RST_N,
 
 			initiator_A_server_awvalid,

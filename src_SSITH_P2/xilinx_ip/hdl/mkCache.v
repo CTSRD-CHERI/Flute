@@ -64,7 +64,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkCache(CLK,
+(* keep_hierarchy = "yes" *) module mkCache(CLK,
 	       RST_N,
 
 	       ma_request_va_va,

@@ -41,7 +41,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkFPR_RegFile(CLK,
+(* keep_hierarchy = "yes" *) module mkFPR_RegFile(CLK,
 		     RST_N,
 
 		     EN_server_reset_request_put,

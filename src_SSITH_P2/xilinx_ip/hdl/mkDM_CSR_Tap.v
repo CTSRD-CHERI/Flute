@@ -41,7 +41,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkDM_CSR_Tap(CLK,
+(* keep_hierarchy = "yes" *) module mkDM_CSR_Tap(CLK,
 		    RST_N,
 
 		    EN_client_request_get,

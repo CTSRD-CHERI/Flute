@@ -81,7 +81,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkI_MMU_Cache(CLK,
+(* keep_hierarchy = "yes" *) module mkI_MMU_Cache(CLK,
 		     RST_N,
 
 		     ma_req_va,

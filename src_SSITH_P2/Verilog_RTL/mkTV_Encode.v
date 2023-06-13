@@ -34,7 +34,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkTV_Encode(CLK,
+(* keep_hierarchy = "yes" *) module mkTV_Encode(CLK,
 		   RST_N,
 
 		   EN_reset,

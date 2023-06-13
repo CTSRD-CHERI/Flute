@@ -148,7 +148,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkDma_Server_Mux_Fabric(CLK,
+(* keep_hierarchy = "yes" *) module mkDma_Server_Mux_Fabric(CLK,
 			       RST_N,
 
 			       EN_reset,

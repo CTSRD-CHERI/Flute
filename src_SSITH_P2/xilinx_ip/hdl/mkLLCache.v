@@ -84,7 +84,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkLLCache(CLK,
+(* keep_hierarchy = "yes" *) module mkLLCache(CLK,
 		 RST_N,
 
 		 to_child_rsFromC_notFull,

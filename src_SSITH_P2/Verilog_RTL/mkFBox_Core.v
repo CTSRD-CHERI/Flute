@@ -42,7 +42,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkFBox_Core(verbosity,
+(* keep_hierarchy = "yes" *) module mkFBox_Core(verbosity,
 		   CLK,
 		   RST_N,
 

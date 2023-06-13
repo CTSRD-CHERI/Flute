@@ -78,7 +78,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkMMIO_AXI4_Adapter_2(CLK,
+(* keep_hierarchy = "yes" *) module mkMMIO_AXI4_Adapter_2(CLK,
 			     RST_N,
 
 			     v_mmio_server_0_request_put,

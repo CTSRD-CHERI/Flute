@@ -41,7 +41,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkLLPipeline(CLK,
+(* keep_hierarchy = "yes" *) module mkLLPipeline(CLK,
 		    RST_N,
 
 		    send_r,

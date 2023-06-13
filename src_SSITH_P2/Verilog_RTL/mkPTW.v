@@ -44,7 +44,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkPTW(CLK,
+(* keep_hierarchy = "yes" *) module mkPTW(CLK,
 	     RST_N,
 
 	     imem_server_request_put,

@@ -36,7 +36,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkFPU(CLK,
+(* keep_hierarchy = "yes" *) module mkFPU(CLK,
 	     RST_N,
 
 	     server_core_request_put,

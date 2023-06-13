@@ -35,7 +35,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkTV_Xactor(CLK,
+(* keep_hierarchy = "yes" *) module mkTV_Xactor(CLK,
 		   RST_N,
 
 		   tv_in_put,

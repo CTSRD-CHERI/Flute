@@ -153,7 +153,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkLastLvCRqMshr(CLK,
+(* keep_hierarchy = "yes" *) module mkLastLvCRqMshr(CLK,
 		       RST_N,
 
 		       transfer_getRq_n,

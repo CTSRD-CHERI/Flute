@@ -187,7 +187,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkFabric_1x3(CLK,
+(* keep_hierarchy = "yes" *) module mkFabric_1x3(CLK,
 		    RST_N,
 
 		    EN_reset,

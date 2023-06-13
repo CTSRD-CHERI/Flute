@@ -44,7 +44,7 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkMMIO(CLK,
+(* keep_hierarchy = "yes" *) module mkMMIO(CLK,
 	      RST_N,
 
 	      req_mmu_cache_req,
