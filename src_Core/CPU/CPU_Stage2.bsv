@@ -254,10 +254,8 @@ module mkCPU_Stage2 #(Bit #(4)         verbosity,
 
 `ifdef ISA_CHERI
      let check_enable = rg_full && rg_stage2.check_enable;
-     let check_exact_enable = rg_full && rg_stage2.check_exact_enable;
-     let check_success =  (!rg_stage2.check_exact_enable || rg_stage2.check_exact_success) &&
-                          rg_stage2.check_address_low >= getBase(rg_stage2.check_authority) &&
-                         (rg_stage2.check_inclusive ? (rg_stage2.check_address_high <= getTop(rg_stage2.check_authority)) : (rg_stage2.check_address_high < getTop(rg_stage2.check_authority)));
+     let check_success =  rg_stage2.check_address_low >= getBase(rg_stage2.check_authority) &&
+                         (rg_stage2.check_address_high <= getTop(rg_stage2.check_authority));
 `endif
 
       // This stage is empty
@@ -709,7 +707,7 @@ module mkCPU_Stage2 #(Bit #(4)         verbosity,
                                                  cheri_exc_reg: rg_stage2.check_authority_idx,
                                                  tval: rg_stage2.check_address_low };
       output_stage2.check_success = check_enable && check_success;
-      if ((check_enable && !check_success) || (check_exact_enable && !rg_stage2.check_exact_success)) begin
+      if (check_enable && !check_success) begin
          output_stage2.ostatus = OSTATUS_NONPIPE;
          output_stage2.trap_info = trap_info_capbounds;
       end

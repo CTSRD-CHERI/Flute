@@ -591,7 +591,7 @@ typedef struct {
 
 `ifdef ISA_CHERI
    // Bounds check: if check_enable, will test
-   // address_low >= authority.base && address_high <? authority.top (?: strictness determined by check_inclusive value TODO)
+   // address_low >= authority.base && address_high <= authority.top
    // TODO behaviour if address_low > address_high?
    // Does not check that authority is tagged, so only generates
    // Bounds exceptions
@@ -600,10 +600,8 @@ typedef struct {
    Bit#(XLEN)     check_address_low;
    Bit#(TAdd#(XLEN,1))     check_address_high;
    Bool       check_enable;
-   Bool check_inclusive;
-   Bool check_exact_enable;
-   Bool check_exact_success;
 `ifdef PERFORMANCE_MONITORING
+   Bool set_bounds_inexact;
    Bool set_offset_in_bounds;
 `endif
 
@@ -680,7 +678,7 @@ instance FShow #(Data_Stage1_to_Stage2);
 `endif
 `ifdef ISA_CHERI
       if (x.check_enable) begin
-          fmt = fmt + $format("\n            bounds_check: checking [0x%h - 0x%h%s within 0x%h", x.check_address_low, x.check_address_high, x.check_inclusive ? ")" : "]", x.check_authority_idx);
+          fmt = fmt + $format("\n            bounds_check: checking [0x%h - 0x%h) within 0x%h", x.check_address_low, x.check_address_high, x.check_authority_idx);
           fmt = fmt + $format("\n              0x%h = ", x.check_authority_idx, fshow(x.check_authority));
       end else begin
           fmt = fmt + $format("\n            no bounds_check");

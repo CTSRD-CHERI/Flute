@@ -969,7 +969,7 @@ module mkCPU (CPU_IFC);
 		     CapMem capMem = cast (capReg);
 		     events.evt_MEM_CAP_STORE_TAG_SET = zeroExtend(pack(isValidCap (capMem)));
 		  end
-		  events.evt_IMPRECISE_SETBOUND =  zeroExtend(pack(! stage1.out.data_to_stage2.check_exact_success));
+		  events.evt_IMPRECISE_SETBOUND =  zeroExtend(pack(stage1.out.data_to_stage2.set_bounds_inexact));
 		  events.evt_UNREPRESENTABLE_CAP = zeroExtend(pack(! stage1.out.data_to_stage2.set_offset_in_bounds));
 `endif
 	       end
