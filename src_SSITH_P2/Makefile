@@ -38,17 +38,13 @@ BSC_COMPILATION_FLAGS += \
 	-D CapWidth=128 -D CheriBusBytes=8 -D SMALL_TAG_CACHE \
 	-D CheriMasterIDWidth=1 -D CheriTransactionIDWidth=5 \
 	-D ISA_CHERI \
-	-D PERFORMANCE_MONITORING \
 	-D ISA_PRIV_M  -D ISA_PRIV_S  -D ISA_PRIV_U  \
-	-D ISA_I  -D ISA_M  -D ISA_A  -D ISA_C  \
-	-D ISA_F -D ISA_D -D INCLUDE_FDIV  -D INCLUDE_FSQRT \
-	-D SHIFT_BARREL    \
-	-D MULT_SYNTH     \
+	-D ISA_I  -D ISA_A  -D ISA_C  \
+	-D SHIFT_SERIAL    \
 	-D Near_Mem_Caches    \
 	-D FABRIC64    \
-	-D INCLUDE_GDB_CONTROL \
 	-D BRVF_TRACE \
-	-D XILINX_BSCAN  -D XILINX_XCVU9P  -D JTAG_TAP
+	-D JTAG_TAP
 
 # CHERI paramters
 CAPSIZE = 128
@@ -62,7 +58,7 @@ CORE_SIZE ?= SMALL
 # default 1 core
 CORE_NUM ?= 1
 # cache size
-CACHE_SIZE ?= LARGE
+CACHE_SIZE ?= SMALL
 
 BSC_COMPILATION_FLAGS += \
 	-D CORE_$(CORE_SIZE) \
@@ -137,7 +133,7 @@ BSC_COMPILATION_FLAGS += \
 tagsparams: src_BSV/TagTableStructure.bsv
 src_BSV/TagTableStructure.bsv: $(REPO)/libs/TagController/tagsparams.py
 	@echo "INFO: Re-generating CHERI tag controller parameters"
-	$^ -v -c $(CAPSIZE) -s $(TAGS_STRUCT:"%"=%) -a $(TAGS_ALIGN) --data-store-base-addr 0xc0000000  -b $@ 0x3fffc000 0xfffff000
+	$^ -v -c $(CAPSIZE) -s $(TAGS_STRUCT:"%"=%) -a $(TAGS_ALIGN) --data-store-base-addr 0x00000000  -b $@ 0x4000000 0x3ffff00
 	@echo "INFO: Re-generated CHERI tag controller parameters"
 
 .PHONY: generate_hpm_vector
