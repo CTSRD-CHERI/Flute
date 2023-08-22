@@ -221,7 +221,7 @@ typeclass PCC#(type t);
     function Addr getPC (t pcc);
     function Addr getPCCBase (t pcc);
     function Bool checkPreValid (t pcc);
-    function Maybe#(CHERI_Exc_Code) checkValid (t pcc, Bit#(TAdd#(XLEN,1)) top, Bool is_i32_not_i16);
+    function Maybe#(CHERI_Exc_Code) checkValid (t pcc, Bit#(XLEN) top, Bool is_i32_not_i16);
     function t fromCapPipe(CapPipe pcc);
     function CapPipe toCapPipe(t pcc);
 endtypeclass
@@ -245,9 +245,9 @@ instance PCC#(PCC_T);
         return  isValidCap(tpl_1(pcc))
              && getKind(tpl_1(pcc)) == UNSEALED
              && getHardPerms(tpl_1(pcc)).permitExecute
-             && isInBounds(tpl_1(pcc), False);
+             && isInBounds(tpl_1(pcc)); // XXX Check at least two bytes?
     endfunction
-    function Maybe#(CHERI_Exc_Code) checkValid (PCC_T pcc, Bit#(TAdd#(XLEN,1)) top, Bool is_i32_not_i16);
+    function Maybe#(CHERI_Exc_Code) checkValid (PCC_T pcc, Bit#(XLEN) top, Bool is_i32_not_i16);
         let toRet = Invalid;
         //TODO alignment checks?
         CapPipe ac = almightyCap;
@@ -257,7 +257,7 @@ instance PCC#(PCC_T);
             toRet = Valid(exc_code_CHERI_Seal);
         else if (!getHardPerms(tpl_1(pcc)).permitExecute)
             toRet = Valid(exc_code_CHERI_XPerm);
-        else if (!isInBounds(tpl_1(pcc), False) || !isInBounds(setAddrUnsafe(tpl_1(pcc), getAddr(tpl_1(pcc)) + (is_i32_not_i16 ? 4 : 2)), True))
+        else if (!isInBounds(tpl_1(pcc)) || !isInBounds(setAddrUnsafe(tpl_1(pcc), getAddr(tpl_1(pcc)) + (is_i32_not_i16 ? 3 : 1))))
             toRet = Valid(exc_code_CHERI_Length);
         return toRet;
     endfunction
@@ -598,7 +598,7 @@ typedef struct {
    CapPipe    check_authority;
    Bit#(6)    check_authority_idx;
    Bit#(XLEN)     check_address_low;
-   Bit#(TAdd#(XLEN,1))     check_address_high;
+   Bit#(XLEN)     check_address_high;
    Bool       check_enable;
 `ifdef PERFORMANCE_MONITORING
    Bool set_bounds_inexact;

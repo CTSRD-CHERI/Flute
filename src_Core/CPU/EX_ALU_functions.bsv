@@ -158,14 +158,14 @@ typedef struct {
    Bool       val1_cap_not_int;
    Bool       val2_cap_not_int;
 
-   Bool                check_enable;
-   CapPipe             check_authority;
-   Bit #(6)            check_authority_idx;
-   Bit#(XLEN)          check_address_low;
-   Bit#(TAdd#(XLEN,1)) check_address_high;
+   Bool       check_enable;
+   CapPipe    check_authority;
+   Bit #(6)   check_authority_idx;
+   Bit#(XLEN) check_address_low;
+   Bit#(XLEN) check_address_high;
 `ifdef PERFORMANCE_MONITORING
-   Bool                set_offset_in_bounds;
-   Bool                set_bounds_inexact;
+   Bool       set_offset_in_bounds;
+   Bool       set_bounds_inexact;
 `else
 `endif
 
@@ -1335,7 +1335,7 @@ function ALU_Outputs checkValidDereference(ALU_Outputs alu_outputs, CapPipe auth
    alu_outputs.check_authority = authority;
    alu_outputs.check_authority_idx = authIdx;
    alu_outputs.check_address_low = base;
-   alu_outputs.check_address_high = zeroExtend(base) + (1 << widthCode);
+   alu_outputs.check_address_high = zeroExtend(base) + ~((~0) << widthCode);
 
    //TODO check alignment?
    if (widthCode == w_SIZE_CAP && isLoad && getHardPerms(authority).permitLoadCap) begin
@@ -1359,7 +1359,7 @@ function ALU_Outputs checkValidJump(ALU_Outputs alu_outputs, Bool branchTaken, C
    alu_outputs.check_authority = authority;
    alu_outputs.check_authority_idx = authIdx;
    alu_outputs.check_address_low = target;
-   alu_outputs.check_address_high = zeroExtend(target) + 2;
+   alu_outputs.check_address_high = zeroExtend(target) + 1;
    return alu_outputs;
 endfunction
 
@@ -1419,7 +1419,7 @@ function ALU_Outputs fv_CHERI (ALU_Inputs inputs, WordXL ddc_base);
 
     let cs2_base = getBase(cs2_val);
     let cs2_top = getTop(cs2_val);
-    Bool cs2_in_bounds = isInBounds(cs2_val, False);
+    Bool cs2_in_bounds = isInBounds(cs2_val);
 
     let alu_outputs = alu_outputs_base;
     alu_outputs.rd = inputs.decoded_instr.rd;
@@ -1683,9 +1683,13 @@ function ALU_Outputs fv_CHERI (ALU_Inputs inputs, WordXL ddc_base);
                 let auth = inputs.rs1_idx == 0 ? ddc_val_mutable : cs1_val_mutable;
 
                 Bool perm_subset = (getPerms(auth) & getPerms(cs2_val)) == getPerms(cs2_val);
-                Bool bound_subset = cs2_base >= getBase(auth) && cs2_top <= getTop(auth);
+                let auth_base = getBase(auth);
+                let auth_top = getTop(auth);
+                Bool bound_subset = cs2_base >= auth_base && cs2_top <= auth_top;
+                Bool wrap = auth_base > auth_top; // XXX either allow this (then bounds checks need to be more careful)
+                                                  //     or make more efficient by emitting a carry flag from getTop
 
-                let result = setValidCap(cs2_val, isValidCap(auth) && isDerivable(cs2_val) && perm_subset && bound_subset);
+                let result = setValidCap(cs2_val, isValidCap(auth) && isDerivable(cs2_val) && perm_subset && bound_subset && !wrap);
                 alu_outputs.cap_val1 = setKind(result, getKind(cs2_val) == SENTRY ? SENTRY : UNSEALED); // Preserve sentries
                 alu_outputs.val1_cap_not_int = True;
             end
@@ -1892,7 +1896,7 @@ function ALU_Outputs fv_CHERI (ALU_Inputs inputs, WordXL ddc_base);
     SET_BOUNDS: begin
         let result = setBounds(cs1_val_mutable, set_bounds_length);
         Bool in_bounds = getAddr(cs1_val_mutable) >= cs1_base
-                      && zeroExtend(getAddr(cs1_val_mutable)) + zeroExtend(set_bounds_length) <= getTop(cs1_val_mutable);
+                      && zeroExtend(set_bounds_length) <= getTop(cs1_val_mutable) + 1 - getAddr(cs1_val_mutable); // XXX use fast setbounds check
         alu_outputs.cap_val1 = setValidCap(result.value, isValidCap(result.value) && (!set_bounds_exact || result.exact) && in_bounds);
         alu_outputs.val1_cap_not_int = True;
 `ifdef PERFORMANCE_MONITORING
