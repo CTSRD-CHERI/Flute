@@ -67,10 +67,8 @@ import UART_Model     :: *;
 import Camera_Model   :: *;
 `endif
 
-`ifdef INCLUDE_ACCEL0
-import AXI4_Accel_IFC :: *;
-import AXI4_Accel     :: *;
-`endif
+import BlueAXI4 :: *;
+import HLS :: *;
 
 `ifdef INCLUDE_TANDEM_VERIF
 import TV_Info :: *;
@@ -181,10 +179,8 @@ module mkSoC_Top (SoC_Top_IFC);
    // SoC IPs
    UART_IFC   uart0  <- mkUART;
 
-`ifdef INCLUDE_ACCEL0
-   // Accel0 master to fabric
-   AXI4_Accel_IFC  accel0 <- mkAXI4_Accel;
-`endif
+   // HLS master to fabric
+   HLS_IFC hls <- mkHLS;
 
    // ----------------
    // SoC fabric master connections
@@ -208,10 +204,9 @@ module mkSoC_Top (SoC_Top_IFC);
                    dummy_master = culDeSac;
    mkConnection (dummy_master, core.dma_server);
 
-`ifdef INCLUDE_ACCEL0
-   // accel_aes0 to fabric
-   mkConnection (accel0.master,  fabric.v_from_masters [accel0_master_num]);
-`endif
+   // hls to fabric
+   let gmem <- fromAXI4_Master_Sig(hls.m_axi_gmem);
+   master_vector[hls_master_num] = gmem;
 
    // ----------------
    // SoC fabric slave connections
@@ -237,6 +232,11 @@ module mkSoC_Top (SoC_Top_IFC);
    slave_vector[uart0_slave_num] = zero_AXI4_Slave_user(uart0.slave);
    route_vector[uart0_slave_num] = soc_map.m_uart0_addr_range;
 
+   // Fabric to HLS
+   let control <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
+   slave_vector[hls_slave_num] = fromAXI4LiteToAXI4_Slave(control);
+   route_vector[hls_slave_num] = soc_map.m_hls_addr_range;
+
 `ifdef HTIF_MEMORY
    AXI4_Slave_IFC#(Wd_Id, Wd_Addr, Wd_Data, Wd_User) htif <- mkAxi4LRegFile(bytes_per_htif);
 
@@ -261,11 +261,9 @@ module mkSoC_Top (SoC_Top_IFC);
       core.core_external_interrupt_sources [irq_num_uart0].m_interrupt_req (intr);
       Integer last_irq_num = irq_num_uart0;
 
-`ifdef INCLUDE_ACCEL0
-      Bool intr_accel0 = accel0.interrupt_req;
-      core.core_external_interrupt_sources [irq_num_accel0].m_interrupt_req (intr_accel0);
-      last_irq_num = irq_num_accel0;
-`endif
+      Bool intr_hls = hls.interrupt;
+      core.core_external_interrupt_sources [irq_num_hls].m_interrupt_req (intr_hls);
+      last_irq_num = irq_num_hls;
 
       // Tie off remaining interrupt request lines (2..N)
       for (Integer j = last_irq_num + 1; j < valueOf (N_External_Interrupt_Sources); j = j + 1)
@@ -312,12 +310,6 @@ module mkSoC_Top (SoC_Top_IFC);
 
 	 uart0.set_addr_map (rangeBase(soc_map.m_uart0_addr_range),
                              rangeTop(soc_map.m_uart0_addr_range));
-
-`ifdef INCLUDE_ACCEL0
-	 accel0.init (fabric_default_id,
-		      soc_map.m_accel0_addr_base,
-		      soc_map.m_accel0_addr_lim);
-`endif
 
 	 if (verbosity != 0) begin
 	    $display ("  SoC address map:");

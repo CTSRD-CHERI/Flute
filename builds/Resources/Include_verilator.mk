@@ -20,6 +20,9 @@ compile:  build_dir  Verilog_RTL
 	@echo  "INFO: Verilog RTL generation ..."
 	bsc -u -elab -verilog  $(RTL_GEN_DIRS)  $(BSC_COMPILATION_FLAGS)  -p $(BSC_PATH)  $(TOPFILE)
 	@echo  "INFO: Verilog RTL generation finished"
+	@echo  "INFO: Incorporating supplied HLS kernel..."
+	cp $(REPO)/builds/Resources/hlsWrapper.v Verilog_RTL/mkHLS.v
+	@echo  "INFO: Incorporation finished"
 
 # ================================================================
 # Compile and link Verilog RTL sources into an verilator executable
@@ -57,8 +60,13 @@ simulator: compile
 	     $(VERILATOR_RESOURCES)/import_DPI_C_decls.v \
 	     tmp1.v                                     > Verilog_RTL/$(TOPMODULE)_edited.v
 	rm   -f  tmp1.v
+	for f in vect_mult/*.v; do \
+		{ echo '/* verilator lint_off LITENDIAN */' ; echo '/* verilator lint_off COMBDLY */' ; cat "$$f" ; echo '/* verilator lint_on COMBDLY */' ; echo '/* verilator lint_on LITENDIAN */ '; } > tmp && mv tmp "$$f" ; \
+	done
+	sed -i vect_mult/*.v -e "/\`timescale/d"
 	verilator \
 		-IVerilog_RTL \
+		-Ivect_mult \
 		-I$(REPO)/src_bsc_lib_RTL \
 		$(VERILATOR_FLAGS) \
 		--cc  $(TOPMODULE)_edited.v \

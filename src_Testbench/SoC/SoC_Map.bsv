@@ -44,19 +44,19 @@ export  SoC_Map_IFC (..), mkSoC_Map;
 export  Num_Masters;
 export  imem_master_num;
 export  dmem_master_num;
-export  accel0_master_num;
+export  hls_master_num;
 
 export  Num_Slaves;
 export  Wd_SId;
 export  boot_rom_slave_num;
 export  mem0_controller_slave_num;
 export  uart0_slave_num;
-export  accel0_slave_num;
+export  hls_slave_num;
 
 export  N_External_Interrupt_Sources;
 export  n_external_interrupt_sources;
 export  irq_num_uart0;
-export  irq_num_accel0;
+export  irq_num_hls;
 
 // ================================================================
 // Bluespec library imports
@@ -87,6 +87,7 @@ interface SoC_Map_IFC;
    (* always_ready *)   method  Range#(Wd_Addr)  m_plic_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_uart0_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_boot_rom_addr_range;
+   (* always_ready *)   method  Range#(Wd_Addr)  m_hls_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_mem0_controller_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_tcm_addr_range;
 
@@ -144,15 +145,10 @@ module mkSoC_Map (SoC_Map_IFC);
    // ----------------------------------------------------------------
    // ACCEL 0
 
-`ifdef INCLUDE_ACCEL0
-   Fabric_Addr accel0_addr_base = 'hC000_2000;
-   Fabric_Addr accel0_addr_size = 'h0000_1000;    // 4K
-   Fabric_Addr accel0_addr_lim  = accel0_addr_base + accel0_addr_size;
-
-   function Bool fn_is_accel0_addr (Fabric_Addr addr);
-      return ((accel0_addr_base <= addr) && (addr < accel0_addr_lim));
-   endfunction
-`endif
+   let hls_addr_range = Range {
+      base: 'hC000_2000,
+      size: 'h0000_1000
+   };
 
    // ----------------------------------------------------------------
    // Boot ROM
@@ -221,7 +217,8 @@ module mkSoC_Map (SoC_Map_IFC);
    function Bool fn_is_IO_addr (Fabric_Addr addr);
       return (   inRange(near_mem_io_addr_range, addr)
               || inRange(plic_addr_range, addr)
-              || inRange(uart0_addr_range, addr));
+              || inRange(uart0_addr_range, addr)
+              || inRange(hls_addr_range, addr));
    endfunction
 `endif
    // ----------------------------------------------------------------
@@ -252,6 +249,7 @@ module mkSoC_Map (SoC_Map_IFC);
    method  Range#(Wd_Addr)  m_plic_addr_range = plic_addr_range;
    method  Range#(Wd_Addr)  m_uart0_addr_range = uart0_addr_range;
    method  Range#(Wd_Addr)  m_boot_rom_addr_range = boot_rom_addr_range;
+   method  Range#(Wd_Addr)  m_hls_addr_range = hls_addr_range;
 
    method  Range#(Wd_Addr)  m_mem0_controller_addr_range = mem0_controller_addr_range;
 
@@ -282,36 +280,20 @@ endmodule
 
 Integer imem_master_num   = 0;
 Integer dmem_master_num   = 1;
-Integer accel0_master_num = 2;
-
-`ifdef INCLUDE_ACCEL0
+Integer hls_master_num = 2;
 
 typedef 3 Num_Masters;
-
-`else
-
-typedef 2 Num_Masters;
-
-`endif
 
 // ================================================================
 // Count and slave-numbers of slaves in the fabric.
 
-`ifdef INCLUDE_ACCEL0
-
 typedef 4 Num_Slaves;
-
-`else
-
-typedef 3 Num_Slaves;
-
-`endif
 
 
 Integer boot_rom_slave_num        = 0;
 Integer mem0_controller_slave_num = 1;
 Integer uart0_slave_num           = 2;
-Integer accel0_slave_num          = 3;
+Integer hls_slave_num             = 3;
 
 // ================================================================
 // Width of fabric 'id' buses
@@ -325,7 +307,7 @@ typedef  16  N_External_Interrupt_Sources;
 Integer  n_external_interrupt_sources = valueOf (N_External_Interrupt_Sources);
 
 Integer irq_num_uart0  = 0;
-Integer irq_num_accel0 = 1;
+Integer irq_num_hls = 1;
 
 // ================================================================
 
