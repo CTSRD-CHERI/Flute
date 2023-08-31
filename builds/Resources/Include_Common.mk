@@ -88,9 +88,10 @@ RISCV_HPM_Events_DIR = $(REPO)/libs/RISCV_HPM_Events
 
 CHERI_DIRS = $(REPO)/libs/cheri-cap-lib:$(REPO)/libs/TagController/TagController:$(REPO)/libs/TagController/TagController/CacheCore:$(REPO)/libs/BlueStuff/BlueUtils
 
-AXI_DIRS = $(REPO)/libs/BlueStuff/AXI:$(REPO)/libs/BlueStuff/BlueBasics:$(REPO)/libs/BlueStuff
+BLUESTUFFDIR = $(REPO)/libs/BlueStuff
+include $(REPO)/libs/BlueStuff/bluestuff.inc.mk
 
-BSC_PATH = $(CUSTOM_DIRS):$(CORE_DIRS):$(TESTBENCH_DIRS):$(AXI_DIRS):$(RVFI_DII_DIRS):$(CHERI_DIRS):+
+BSC_PATH = $(CUSTOM_DIRS):$(CORE_DIRS):$(TESTBENCH_DIRS):$(BLUESTUFF_DIRS):$(RVFI_DII_DIRS):$(CHERI_DIRS):+
 
 # ----------------
 # Top-level file and module
