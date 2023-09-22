@@ -206,7 +206,7 @@ module mkSoC_Top (SoC_Top_IFC);
 
    // hls to fabric
    let gmem <- fromAXI4_Master_Sig(hls.m_axi_gmem);
-   master_vector[hls_master_num] = gmem;
+   master_vector[hls_master_num] = debugAXI4_Master (gmem, $format ("hls axi4 master"));
 
    // ----------------
    // SoC fabric slave connections
@@ -233,8 +233,9 @@ module mkSoC_Top (SoC_Top_IFC);
    route_vector[uart0_slave_num] = soc_map.m_uart0_addr_range;
 
    // Fabric to HLS
-   let control <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
-   slave_vector[hls_slave_num] = fromAXI4LiteToAXI4_Slave(control);
+   let controlLite <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
+   let control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (controlLite, $format ("hls control axi4lite slave")));
+   slave_vector[hls_slave_num] = debugAXI4_Slave (control, $format ("hls control axi4 slave"));
    route_vector[hls_slave_num] = soc_map.m_hls_addr_range;
 
 `ifdef HTIF_MEMORY
