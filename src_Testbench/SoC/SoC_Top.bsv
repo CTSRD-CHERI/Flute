@@ -44,7 +44,8 @@ import Vector        :: *;
 import Cur_Cycle   :: *;
 import GetPut_Aux  :: *;
 import Routable    :: *;
-import AXI4        :: *;
+import BlueAXI4    :: *;
+import BlueBasics  :: *;
 
 // ================================================================
 // Project imports
@@ -233,9 +234,25 @@ module mkSoC_Top (SoC_Top_IFC);
    route_vector[uart0_slave_num] = soc_map.m_uart0_addr_range;
 
    // Fabric to HLS
-   let controlLite <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
-   let control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (controlLite, $format ("hls control axi4lite slave")));
-   slave_vector[hls_slave_num] = debugAXI4_Slave (control, $format ("hls control axi4 slave"));
+   AXI4Lite_Slave#(64, 32, 0, 0, 0, 0, 0) controlLite <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
+   AXI4_Slave#( Wd_SId, Wd_Addr, 32
+              , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
+              , Wd_AR_User_ext, Wd_R_User_ext )
+      control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (controlLite, $format ("hls control axi4lite slave")));
+
+   NumProxy #(1) prxIn = error("don't look inside a proxy");
+   NumProxy #(1) prxOut = error("don't look inside a proxy");
+
+   Tuple2 #( AXI4_Slave  #( Wd_SId, Wd_Addr, Wd_Data
+                          , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
+                          , Wd_AR_User_ext, Wd_R_User_ext )
+          , AXI4_Master #( Wd_SId, Wd_Addr, 32
+                         , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
+                         , Wd_AR_User_ext, Wd_R_User_ext ))
+      hlsWidthShim <- mkAXI4DataWidthShim_WideToNarrow (prxIn, prxOut);
+   mkConnection (tpl_2 (hlsWidthShim), control);
+
+   slave_vector[hls_slave_num] = debugAXI4_Slave (tpl_1 (hlsWidthShim), $format ("hls control axi4 slave"));
    route_vector[hls_slave_num] = soc_map.m_hls_addr_range;
 
 `ifdef HTIF_MEMORY
