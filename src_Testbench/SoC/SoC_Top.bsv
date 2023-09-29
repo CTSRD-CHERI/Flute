@@ -152,7 +152,8 @@ deriving (Bits, Eq, FShow);
 // The module
 
 (* synthesize *)
-module mkSoC_Top (SoC_Top_IFC);
+module mkSoC_Top (SoC_Top_IFC)
+   provisos (NumAlias#(n_hls, 1));
    Integer verbosity = 0;    // Normally 0; non-zero for debugging
 
    Reg #(SoC_State) rg_state <- mkReg (SOC_START);
@@ -181,7 +182,7 @@ module mkSoC_Top (SoC_Top_IFC);
    UART_IFC   uart0  <- mkUART;
 
    // HLS master to fabric
-   HLS_IFC hls <- mkHLS;
+   HLS_Group_IFC#(n_hls) hls <- mkHLSGroup;
 
    // ----------------
    // SoC fabric master connections
@@ -206,8 +207,7 @@ module mkSoC_Top (SoC_Top_IFC);
    mkConnection (dummy_master, core.dma_server);
 
    // hls to fabric
-   let gmem <- fromAXI4_Master_Sig(hls.m_axi_gmem);
-   master_vector[hls_master_num] = debugAXI4_Master (gmem, $format ("hls axi4 master"));
+   master_vector[hls_master_num] = debugAXI4_Master (hls.m_axi_gmem, $format ("hls axi4 master"));
 
    // ----------------
    // SoC fabric slave connections
@@ -234,11 +234,10 @@ module mkSoC_Top (SoC_Top_IFC);
    route_vector[uart0_slave_num] = soc_map.m_uart0_addr_range;
 
    // Fabric to HLS
-   AXI4Lite_Slave#(64, 32, 0, 0, 0, 0, 0) controlLite <- fromAXI4Lite_Slave_Sig(hls.s_axi_control);
    AXI4_Slave#( Wd_SId, Wd_Addr, 32
               , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
               , Wd_AR_User_ext, Wd_R_User_ext )
-      control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (controlLite, $format ("hls control axi4lite slave")));
+      control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (hls.s_axi_control, $format ("hls control axi4lite slave")));
 
    NumProxy #(1) prxIn = error("don't look inside a proxy");
    NumProxy #(1) prxOut = error("don't look inside a proxy");
@@ -279,9 +278,12 @@ module mkSoC_Top (SoC_Top_IFC);
       core.core_external_interrupt_sources [irq_num_uart0].m_interrupt_req (intr);
       Integer last_irq_num = irq_num_uart0;
 
-      Bool intr_hls = hls.interrupt;
-      core.core_external_interrupt_sources [irq_num_hls].m_interrupt_req (intr_hls);
-      last_irq_num = irq_num_hls;
+      // HLS
+      Integer curr_irq_num = last_irq_num + 1;
+      for (Integer j = 0; j < valueOf(n_hls); j = j + 1) begin
+         last_irq_num = last_irq_num + 1;
+	 core.core_external_interrupt_sources [last_irq_num].m_interrupt_req (hls.interrupt[j]);
+      end
 
       // Tie off remaining interrupt request lines (2..N)
       for (Integer j = last_irq_num + 1; j < valueOf (N_External_Interrupt_Sources); j = j + 1)

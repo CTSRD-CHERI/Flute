@@ -79,114 +79,114 @@
   `define BSV_RESET_EDGE negedge
 `endif
 
-module mkHLS(CLK,
-             RST_N,
+module mkHLS_Sig(CLK,
+                 RST_N,
 
-             m_axi_gmem_awid,
+                 m_axi_gmem_awid,
 
-             m_axi_gmem_awaddr,
+                 m_axi_gmem_awaddr,
 
-             m_axi_gmem_awlen,
+                 m_axi_gmem_awlen,
 
-             m_axi_gmem_awsize,
+                 m_axi_gmem_awsize,
 
-             m_axi_gmem_awburst,
+                 m_axi_gmem_awburst,
 
-             m_axi_gmem_awlock,
+                 m_axi_gmem_awlock,
 
-             m_axi_gmem_awcache,
+                 m_axi_gmem_awcache,
 
-             m_axi_gmem_awprot,
+                 m_axi_gmem_awprot,
 
-             m_axi_gmem_awqos,
+                 m_axi_gmem_awqos,
 
-             m_axi_gmem_awregion,
+                 m_axi_gmem_awregion,
 
-             m_axi_gmem_awvalid,
+                 m_axi_gmem_awvalid,
 
-             m_axi_gmem_awready,
+                 m_axi_gmem_awready,
 
-             m_axi_gmem_wdata,
+                 m_axi_gmem_wdata,
 
-             m_axi_gmem_wstrb,
+                 m_axi_gmem_wstrb,
 
-             m_axi_gmem_wlast,
+                 m_axi_gmem_wlast,
 
-             m_axi_gmem_wvalid,
+                 m_axi_gmem_wvalid,
 
-             m_axi_gmem_wready,
+                 m_axi_gmem_wready,
 
-             m_axi_gmem_bvalid,
-             m_axi_gmem_bid,
-             m_axi_gmem_bresp,
+                 m_axi_gmem_bvalid,
+                 m_axi_gmem_bid,
+                 m_axi_gmem_bresp,
 
-             m_axi_gmem_bready,
+                 m_axi_gmem_bready,
 
-             m_axi_gmem_arid,
+                 m_axi_gmem_arid,
 
-             m_axi_gmem_araddr,
+                 m_axi_gmem_araddr,
 
-             m_axi_gmem_arlen,
+                 m_axi_gmem_arlen,
 
-             m_axi_gmem_arsize,
+                 m_axi_gmem_arsize,
 
-             m_axi_gmem_arburst,
+                 m_axi_gmem_arburst,
 
-             m_axi_gmem_arlock,
+                 m_axi_gmem_arlock,
 
-             m_axi_gmem_arcache,
+                 m_axi_gmem_arcache,
 
-             m_axi_gmem_arprot,
+                 m_axi_gmem_arprot,
 
-             m_axi_gmem_arqos,
+                 m_axi_gmem_arqos,
 
-             m_axi_gmem_arregion,
+                 m_axi_gmem_arregion,
 
-             m_axi_gmem_arvalid,
+                 m_axi_gmem_arvalid,
 
-             m_axi_gmem_arready,
+                 m_axi_gmem_arready,
 
-             m_axi_gmem_rvalid,
-             m_axi_gmem_rid,
-             m_axi_gmem_rdata,
-             m_axi_gmem_rresp,
-             m_axi_gmem_rlast,
+                 m_axi_gmem_rvalid,
+                 m_axi_gmem_rid,
+                 m_axi_gmem_rdata,
+                 m_axi_gmem_rresp,
+                 m_axi_gmem_rlast,
 
-             m_axi_gmem_rready,
+                 m_axi_gmem_rready,
 
-             s_axi_control_awvalid,
-             s_axi_control_awaddr,
-             s_axi_control_awprot,
+                 s_axi_control_awvalid,
+                 s_axi_control_awaddr,
+                 s_axi_control_awprot,
 
-             s_axi_control_awready,
+                 s_axi_control_awready,
 
-             s_axi_control_wvalid,
-             s_axi_control_wdata,
-             s_axi_control_wstrb,
+                 s_axi_control_wvalid,
+                 s_axi_control_wdata,
+                 s_axi_control_wstrb,
 
-             s_axi_control_wready,
+                 s_axi_control_wready,
 
-             s_axi_control_bresp,
+                 s_axi_control_bresp,
 
-             s_axi_control_bvalid,
+                 s_axi_control_bvalid,
 
-             s_axi_control_bready,
+                 s_axi_control_bready,
 
-             s_axi_control_arvalid,
-             s_axi_control_araddr,
-             s_axi_control_arprot,
+                 s_axi_control_arvalid,
+                 s_axi_control_araddr,
+                 s_axi_control_arprot,
 
-             s_axi_control_arready,
+                 s_axi_control_arready,
 
-             s_axi_control_rdata,
+                 s_axi_control_rdata,
 
-             s_axi_control_rresp,
+                 s_axi_control_rresp,
 
-             s_axi_control_rvalid,
+                 s_axi_control_rvalid,
 
-             s_axi_control_rready,
+                 s_axi_control_rready,
 
-             interrupt);
+                 interrupt);
   input  CLK;
   input  RST_N;
 

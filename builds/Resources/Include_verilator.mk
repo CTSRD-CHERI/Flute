@@ -21,7 +21,7 @@ compile:  build_dir  Verilog_RTL
 	bsc -u -elab -verilog  $(RTL_GEN_DIRS)  $(BSC_COMPILATION_FLAGS)  -p $(BSC_PATH)  $(TOPFILE)
 	@echo  "INFO: Verilog RTL generation finished"
 	@echo  "INFO: Incorporating supplied HLS kernel..."
-	cp $(REPO)/builds/Resources/hlsWrapper.v Verilog_RTL/mkHLS.v
+	cp $(REPO)/builds/Resources/hlsWrapper.v Verilog_RTL/mkHLS_Sig.v
 	@echo  "INFO: Incorporation finished"
 
 # ================================================================
@@ -64,7 +64,7 @@ simulator: compile
 		{ echo '/* verilator lint_off LITENDIAN */' ; echo '/* verilator lint_off COMBDLY */' ; cat "$$f" ; echo '/* verilator lint_on COMBDLY */' ; echo '/* verilator lint_on LITENDIAN */ '; } > tmp && mv tmp "$$f" ; \
 	done
 	sed -i vect_mult/*.v -e "/\`timescale/d"
-	verilator \
+	verilator --no-timing \
 		-IVerilog_RTL \
 		-Ivect_mult \
 		-I$(REPO)/src_bsc_lib_RTL \
