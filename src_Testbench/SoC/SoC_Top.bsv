@@ -207,7 +207,19 @@ module mkSoC_Top (SoC_Top_IFC)
    mkConnection (dummy_master, core.dma_server);
 
    // hls to fabric
-   master_vector[hls_master_num] = debugAXI4_Master (hls.m_axi_gmem, $format ("hls axi4 master"));
+
+   NumProxy #(1) prxMIn = error("don't look inside a proxy");
+   NumProxy #(1) prxMOut = error("don't look inside a proxy");
+
+   Tuple2 #( AXI4_Slave  #( Wd_MId_ext, Wd_Addr, 32
+                          , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
+                          , Wd_AR_User_ext, Wd_R_User_ext)
+          , AXI4_Master #( Wd_MId_ext, Wd_Addr, Wd_Data
+                         , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
+                         , Wd_AR_User_ext, Wd_R_User_ext))
+      hlsMWidthShim <- mkAXI4DataWidthShim_NarrowToWide (prxMIn, prxMOut);
+   mkConnection (hls.m_axi_gmem, tpl_1 (hlsMWidthShim));
+   master_vector[hls_master_num] = debugAXI4_Master (tpl_2 (hlsMWidthShim), $format ("hls axi4 master"));
 
    // ----------------
    // SoC fabric slave connections

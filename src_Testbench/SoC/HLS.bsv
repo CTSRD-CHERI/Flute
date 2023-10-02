@@ -5,19 +5,19 @@ import BlueAXI4   :: *;
 import Vector     :: *;
 
 interface HLS_IFC_Sig;
-  interface AXI4_Master_Sig#(6, 64, 64, 0, 0, 0, 0, 0) m_axi_gmem;
+  interface AXI4_Master_Sig#(6, 64, 32, 0, 0, 0, 0, 0) m_axi_gmem;
   interface AXI4Lite_Slave_Sig#(64, 32, 0, 0, 0, 0, 0) s_axi_control;
   (* always_ready, always_enabled *) method Bool interrupt;
 endinterface
 
 interface HLS_IFC;
-  interface AXI4_Master#(6, 64, 64, 0, 0, 0, 0, 0) m_axi_gmem;
+  interface AXI4_Master#(6, 64, 32, 0, 0, 0, 0, 0) m_axi_gmem;
   interface AXI4Lite_Slave#(64, 32, 0, 0, 0, 0, 0) s_axi_control;
   (* always_ready, always_enabled *) method Bool interrupt;
 endinterface
 
 interface HLS_Group_IFC#(numeric type n);
-  interface AXI4_Master#(6, 64, 64, 0, 0, 0, 0, 0) m_axi_gmem;
+  interface AXI4_Master#(6, 64, 32, 0, 0, 0, 0, 0) m_axi_gmem;
   interface AXI4Lite_Slave#(64, 32, 0, 0, 0, 0, 0) s_axi_control;
   (* always_ready, always_enabled *) method Vector#(n, Bool) interrupt;
 endinterface
@@ -71,7 +71,7 @@ instance MkHLSGroup #(n)
       mkAXI4IDNameSpaceCrossing(nbEntriesProxy, depthProxy);
     Vector#(n, HLS_IFC) ifcs <- replicateM(mkHLS);
     function AXI4Lite_Slave#(64, 32, 0, 0, 0, 0, 0) get_ctrl (HLS_IFC x) = x.s_axi_control;
-    function AXI4_Master#(6, 64, 64, 0, 0, 0, 0, 0) get_gmem (HLS_IFC x) = x.m_axi_gmem;
+    function AXI4_Master#(6, 64, 32, 0, 0, 0, 0, 0) get_gmem (HLS_IFC x) = x.m_axi_gmem;
     function Bool get_irq (HLS_IFC x) = x.interrupt;
 
     `define RANGE_SHIFT 12 // 4KiB of register space per hls

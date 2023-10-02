@@ -11,8 +11,8 @@
 // m_axi_gmem_awqos               O     4 const
 // m_axi_gmem_awregion            O     4 const
 // m_axi_gmem_awvalid             O     1 const
-// m_axi_gmem_wdata               O    64 const
-// m_axi_gmem_wstrb               O     8 const
+// m_axi_gmem_wdata               O    32 const
+// m_axi_gmem_wstrb               O     4 const
 // m_axi_gmem_wlast               O     1 const
 // m_axi_gmem_wvalid              O     1 const
 // m_axi_gmem_bready              O     1 const
@@ -33,7 +33,7 @@
 // s_axi_control_bresp            O     2 const
 // s_axi_control_bvalid           O     1 const
 // s_axi_control_arready          O     1 const
-// s_axi_control_rdata            O    64 const
+// s_axi_control_rdata            O    32 const
 // s_axi_control_rresp            O     2 const
 // s_axi_control_rvalid           O     1 const
 // interrupt                      O     1 const
@@ -47,15 +47,15 @@
 // m_axi_gmem_arready             I     1 unused
 // m_axi_gmem_rvalid              I     1 unused
 // m_axi_gmem_rid                 I     6 unused
-// m_axi_gmem_rdata               I    64 unused
+// m_axi_gmem_rdata               I    32 unused
 // m_axi_gmem_rresp               I     2 unused
 // m_axi_gmem_rlast               I     1 unused
 // s_axi_control_awvalid          I     1 unused
 // s_axi_control_awaddr           I    64 unused
 // s_axi_control_awprot           I     3 unused
 // s_axi_control_wvalid           I     1 unused
-// s_axi_control_wdata            I    64 unused
-// s_axi_control_wstrb            I     8 unused
+// s_axi_control_wdata            I    32 unused
+// s_axi_control_wstrb            I     4 unused
 // s_axi_control_bready           I     1 unused
 // s_axi_control_arvalid          I     1 unused
 // s_axi_control_araddr           I    64 unused
@@ -229,10 +229,10 @@ module mkHLS_Sig(CLK,
   input  m_axi_gmem_awready;
 
   // value method m_axi_gmem_w_wdata
-  output [63 : 0] m_axi_gmem_wdata;
+  output [31 : 0] m_axi_gmem_wdata;
 
   // value method m_axi_gmem_w_wstrb
-  output [7 : 0] m_axi_gmem_wstrb;
+  output [3 : 0] m_axi_gmem_wstrb;
 
   // value method m_axi_gmem_w_wlast
   output m_axi_gmem_wlast;
@@ -294,7 +294,7 @@ module mkHLS_Sig(CLK,
   // action method m_axi_gmem_r_rflit
   input  m_axi_gmem_rvalid;
   input  [5 : 0] m_axi_gmem_rid;
-  input  [63 : 0] m_axi_gmem_rdata;
+  input  [31 : 0] m_axi_gmem_rdata;
   input  [1 : 0] m_axi_gmem_rresp;
   input  m_axi_gmem_rlast;
 
@@ -311,8 +311,8 @@ module mkHLS_Sig(CLK,
 
   // action method s_axi_control_w_wflit
   input  s_axi_control_wvalid;
-  input  [63 : 0] s_axi_control_wdata;
-  input  [7 : 0] s_axi_control_wstrb;
+  input  [31 : 0] s_axi_control_wdata;
+  input  [3 : 0] s_axi_control_wstrb;
 
   // value method s_axi_control_w_wready
   output s_axi_control_wready;
@@ -337,7 +337,7 @@ module mkHLS_Sig(CLK,
   output s_axi_control_arready;
 
   // value method s_axi_control_r_rdata
-  output [63 : 0] s_axi_control_rdata;
+  output [31 : 0] s_axi_control_rdata;
 
   // value method s_axi_control_r_rresp
   output [1 : 0] s_axi_control_rresp;
@@ -354,11 +354,7 @@ module mkHLS_Sig(CLK,
   output interrupt;
 
   vect_mult # (
-      .C_S_AXI_CONTROL_DATA_WIDTH(64),
-      .C_S_AXI_DATA_WIDTH(64),
       .C_M_AXI_GMEM_ID_WIDTH(6),
-      .C_M_AXI_GMEM_DATA_WIDTH(64),
-      .C_M_AXI_DATA_WIDTH(64)
       ) hls (
       .ap_clk(CLK),
       .ap_rst_n(RST_N),
