@@ -146,8 +146,8 @@ module mkSoC_Map (SoC_Map_IFC);
    // ACCEL 0
 
    let hls_addr_range = Range {
-      base: 'hC000_2000,
-      size: 'h0000_1000
+      base: 'hC001_0000,
+      size: 'h0001_0000
    };
 
    // ----------------------------------------------------------------

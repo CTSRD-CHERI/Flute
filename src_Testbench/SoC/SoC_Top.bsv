@@ -153,7 +153,7 @@ deriving (Bits, Eq, FShow);
 
 (* synthesize *)
 module mkSoC_Top (SoC_Top_IFC)
-   provisos (NumAlias#(n_hls, 1));
+   provisos (NumAlias#(n_hls, 8));
    Integer verbosity = 0;    // Normally 0; non-zero for debugging
 
    Reg #(SoC_State) rg_state <- mkReg (SOC_START);
