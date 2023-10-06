@@ -52,6 +52,9 @@ export  boot_rom_slave_num;
 export  mem0_controller_slave_num;
 export  uart0_slave_num;
 export  hls_slave_num;
+`ifdef HLS_CAP_CHECKER
+export  hls_cap_checker_slave_num;
+`endif
 
 export  N_External_Interrupt_Sources;
 export  n_external_interrupt_sources;
@@ -88,6 +91,7 @@ interface SoC_Map_IFC;
    (* always_ready *)   method  Range#(Wd_Addr)  m_uart0_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_boot_rom_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_hls_addr_range;
+   (* always_ready *)   method  Range#(Wd_Addr)  m_hls_cap_checker_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_mem0_controller_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_tcm_addr_range;
 
@@ -143,12 +147,22 @@ module mkSoC_Map (SoC_Map_IFC);
    };
 
    // ----------------------------------------------------------------
-   // ACCEL 0
+   // HLS
 
    let hls_addr_range = Range {
       base: 'hC001_0000,
       size: 'h0001_0000
    };
+
+   `ifdef HLS_CAP_CHECKER
+   // ----------------------------------------------------------------
+   // HLS CAP CHECKER
+
+   let hls_cap_checker_addr_range = Range {
+      base: 'hC002_0000,
+      size: 'h0000_2000
+   };
+   `endif
 
    // ----------------------------------------------------------------
    // Boot ROM
@@ -218,7 +232,11 @@ module mkSoC_Map (SoC_Map_IFC);
       return (   inRange(near_mem_io_addr_range, addr)
               || inRange(plic_addr_range, addr)
               || inRange(uart0_addr_range, addr)
-              || inRange(hls_addr_range, addr));
+              || inRange(hls_addr_range, addr)
+              `ifdef HLS_CAP_CHECKER
+              || inRange(hls_cap_checker_addr_range, addr)
+              `endif
+              );
    endfunction
 `endif
    // ----------------------------------------------------------------
@@ -250,6 +268,9 @@ module mkSoC_Map (SoC_Map_IFC);
    method  Range#(Wd_Addr)  m_uart0_addr_range = uart0_addr_range;
    method  Range#(Wd_Addr)  m_boot_rom_addr_range = boot_rom_addr_range;
    method  Range#(Wd_Addr)  m_hls_addr_range = hls_addr_range;
+   `ifdef HLS_CAP_CHECKER
+   method  Range#(Wd_Addr)  m_hls_cap_checker_addr_range = hls_cap_checker_addr_range;
+   `endif
 
    method  Range#(Wd_Addr)  m_mem0_controller_addr_range = mem0_controller_addr_range;
 
@@ -289,11 +310,13 @@ typedef 3 Num_Masters;
 
 typedef 4 Num_Slaves;
 
-
 Integer boot_rom_slave_num        = 0;
 Integer mem0_controller_slave_num = 1;
 Integer uart0_slave_num           = 2;
 Integer hls_slave_num             = 3;
+`ifdef HLS_CAP_CHECKER
+Integer hls_cap_checker_slave_num   = 4;
+`endif
 
 // ================================================================
 // Width of fabric 'id' buses

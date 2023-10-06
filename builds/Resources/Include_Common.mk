@@ -110,6 +110,14 @@ BSC_COMPILATION_FLAGS += \
 	-suppress-warnings G0020    \
 	+RTS -K128M -RTS  -show-range-conflict
 
+ifdef N_HLS
+BSC_COMPILATION_FLAGS += -D N_HLS=$(N_HLS)
+endif
+
+ifdef HLS_CAP_CHECKER
+BSC_COMPILATION_FLAGS += -D HLS_CAP_CHECKER
+endif
+
 # ================================================================
 # Runs simulation executable on ELF given by EXAMPLE
 

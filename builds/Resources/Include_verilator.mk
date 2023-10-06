@@ -64,7 +64,7 @@ simulator: compile
 		{ echo '/* verilator lint_off LITENDIAN */' ; echo '/* verilator lint_off COMBDLY */' ; cat "$$f" ; echo '/* verilator lint_on COMBDLY */' ; echo '/* verilator lint_on LITENDIAN */ '; } > tmp && mv tmp "$$f" ; \
 	done
 	sed -i vect_mult/*.v -e "/\`timescale/d"
-	verilator --no-timing \
+	verilator --no-timing --x-assign 1 \
 		-IVerilog_RTL \
 		-Ivect_mult \
 		-I$(REPO)/src_bsc_lib_RTL \

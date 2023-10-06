@@ -69,7 +69,6 @@ import Camera_Model   :: *;
 `endif
 
 import BlueAXI4 :: *;
-import HLS :: *;
 
 `ifdef INCLUDE_TANDEM_VERIF
 import TV_Info :: *;
@@ -152,8 +151,7 @@ deriving (Bits, Eq, FShow);
 // The module
 
 (* synthesize *)
-module mkSoC_Top (SoC_Top_IFC)
-   provisos (NumAlias#(n_hls, 8));
+module mkSoC_Top (SoC_Top_IFC);
    Integer verbosity = 0;    // Normally 0; non-zero for debugging
 
    Reg #(SoC_State) rg_state <- mkReg (SOC_START);
@@ -181,9 +179,6 @@ module mkSoC_Top (SoC_Top_IFC)
    // SoC IPs
    UART_IFC   uart0  <- mkUART;
 
-   // HLS master to fabric
-   HLS_Group_IFC#(n_hls) hls <- mkHLSGroup;
-
    // ----------------
    // SoC fabric master connections
    // Note: see 'SoC_Map' for 'master_num' definitions
@@ -205,21 +200,6 @@ module mkSoC_Top (SoC_Top_IFC)
                 , Wd_AR_User_Dma, Wd_R_User_Dma)
                    dummy_master = culDeSac;
    mkConnection (dummy_master, core.dma_server);
-
-   // hls to fabric
-
-   NumProxy #(1) prxMIn = error("don't look inside a proxy");
-   NumProxy #(1) prxMOut = error("don't look inside a proxy");
-
-   Tuple2 #( AXI4_Slave  #( Wd_MId_ext, Wd_Addr, 32
-                          , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
-                          , Wd_AR_User_ext, Wd_R_User_ext)
-          , AXI4_Master #( Wd_MId_ext, Wd_Addr, Wd_Data
-                         , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
-                         , Wd_AR_User_ext, Wd_R_User_ext))
-      hlsMWidthShim <- mkAXI4DataWidthShim_NarrowToWide (prxMIn, prxMOut);
-   mkConnection (hls.m_axi_gmem, tpl_1 (hlsMWidthShim));
-   master_vector[hls_master_num] = debugAXI4_Master (tpl_2 (hlsMWidthShim), $format ("hls axi4 master"));
 
    // ----------------
    // SoC fabric slave connections
@@ -245,27 +225,6 @@ module mkSoC_Top (SoC_Top_IFC)
    slave_vector[uart0_slave_num] = zero_AXI4_Slave_user(uart0.slave);
    route_vector[uart0_slave_num] = soc_map.m_uart0_addr_range;
 
-   // Fabric to HLS
-   AXI4_Slave#( Wd_SId, Wd_Addr, 32
-              , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
-              , Wd_AR_User_ext, Wd_R_User_ext )
-      control <- mkAXI4LiteToAXI4_Slave(debugAXI4Lite_Slave (hls.s_axi_control, $format ("hls control axi4lite slave")));
-
-   NumProxy #(1) prxIn = error("don't look inside a proxy");
-   NumProxy #(1) prxOut = error("don't look inside a proxy");
-
-   Tuple2 #( AXI4_Slave  #( Wd_SId, Wd_Addr, Wd_Data
-                          , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
-                          , Wd_AR_User_ext, Wd_R_User_ext )
-          , AXI4_Master #( Wd_SId, Wd_Addr, 32
-                         , Wd_AW_User_ext, Wd_W_User_ext, Wd_B_User_ext
-                         , Wd_AR_User_ext, Wd_R_User_ext ))
-      hlsWidthShim <- mkAXI4DataWidthShim_WideToNarrow (prxIn, prxOut);
-   mkConnection (tpl_2 (hlsWidthShim), control);
-
-   slave_vector[hls_slave_num] = debugAXI4_Slave (tpl_1 (hlsWidthShim), $format ("hls control axi4 slave"));
-   route_vector[hls_slave_num] = soc_map.m_hls_addr_range;
-
 `ifdef HTIF_MEMORY
    AXI4_Slave_IFC#(Wd_Id, Wd_Addr, Wd_Data, Wd_User) htif <- mkAxi4LRegFile(bytes_per_htif);
 
@@ -289,13 +248,6 @@ module mkSoC_Top (SoC_Top_IFC)
       // UART
       core.core_external_interrupt_sources [irq_num_uart0].m_interrupt_req (intr);
       Integer last_irq_num = irq_num_uart0;
-
-      // HLS
-      Integer curr_irq_num = last_irq_num + 1;
-      for (Integer j = 0; j < valueOf(n_hls); j = j + 1) begin
-         last_irq_num = last_irq_num + 1;
-	 core.core_external_interrupt_sources [last_irq_num].m_interrupt_req (hls.interrupt[j]);
-      end
 
       // Tie off remaining interrupt request lines (2..N)
       for (Integer j = last_irq_num + 1; j < valueOf (N_External_Interrupt_Sources); j = j + 1)

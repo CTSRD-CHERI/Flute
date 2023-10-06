@@ -162,7 +162,7 @@ interface MMU_Cache_IFC #(numeric type mID);
 
 endinterface
 
-typedef MMU_Cache_IFC#(Wd_MId_2x3) MMU_DCache_IFC;
+typedef MMU_Cache_IFC#(Wd_MId_3x4) MMU_DCache_IFC;
 typedef MMU_Cache_IFC#(Wd_MId) MMU_ICache_IFC;
 
 /*interface MMU_DICache_IFC#(numeric type mID, type evtsT);
@@ -238,7 +238,7 @@ endinterface*/
 
 /*
 `ifdef PERFORMANCE_MONITORING
-typedef MMU_DICache_IFC#(Wd_MId_2x3, EventsL1D) MMU_DCache_IFC;
+typedef MMU_DICache_IFC#(Wd_MId_3x4, EventsL1D) MMU_DCache_IFC;
 typedef MMU_DICache_IFC#(Wd_MId, EventsL1I) MMU_ICache_IFC;
 `endif
 */
@@ -252,7 +252,7 @@ endmodule
 
 (* synthesize *)
 module mkMMU_DCache(MMU_DCache_IFC);
-    let cache <- mkMMU_Cache(True, fabric_2x3_default_mid);
+    let cache <- mkMMU_Cache(True, fabric_3x4_default_mid);
     return cache;
 endmodule
 
@@ -518,7 +518,7 @@ endfunction
 /*
 (* synthesize *)
 module mkMMU_DCache(MMU_DCache_IFC);
-  MMU_Cache_IFC#(Wd_MId_2x3) cache <- mkMMU_Cache(False, fabric_2x3_default_mid);
+  MMU_Cache_IFC#(Wd_MId_3x4) cache <- mkMMU_Cache(False, fabric_3x4_default_mid);
 `ifdef PERFORMANCE_MONITORING
   EventsL1D evts = EventsL1D { evt_LD           : zeroExtend(pack(cache.events.evt_LD))
                              , evt_LD_MISS      : zeroExtend(pack(cache.events.evt_LD_MISS))

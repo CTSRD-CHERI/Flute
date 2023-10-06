@@ -43,7 +43,8 @@ import Connectable   :: *;
 import Cur_Cycle  :: *;
 import GetPut_Aux :: *;
 import Routable   :: *;
-import AXI4       :: *;
+import BlueAXI4   :: *;
+import BlueBasics :: *;
 
 `ifdef INCLUDE_DMEM_SLAVE
 import AXI4Lite :: *;
@@ -54,6 +55,8 @@ import AXI4Lite :: *;
 import TagControllerAXI :: *;
 `endif
 `endif
+
+import HLS :: *;
 
 // ================================================================
 // Project imports
@@ -405,32 +408,80 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
 `endif
    // for ifdef INCLUDE_GDB_CONTROL
 
-   // ================================================================
-   // Connect the local 2x3 fabric
+   // ----------------------------------------------------------------
+   // HLS
 
-   // Masters on the local 2x3 fabric
-   Vector#(Num_Masters_2x3,
-           AXI4_Master#( Wd_MId_2x3, Wd_Addr, Wd_Data
+`ifndef N_HLS
+`define N_HLS 8
+`endif
+
+`ifdef HLS_CAP_CHECKER
+   HLSGroup#( `N_HLS
+            , Wd_MId_3x4, Wd_Addr, Wd_Data
+            , Wd_AW_User, Wd_W_User, Wd_B_User
+            , Wd_AR_User, Wd_R_User
+            , Wd_SId_3x4, Wd_Addr, 128
+            , Wd_AW_User, Wd_W_User, Wd_B_User
+            , Wd_AR_User, Wd_R_User )
+      hls <- mkHLSGroupWithCapChecker( soc_map.m_hls_addr_range
+                                     , soc_map.m_hls_cap_checker_addr_range );
+   NumProxy #(2)  prxInHLS = error("Don't look inside a proxy");
+   NumProxy #(1) prxOutHLS = error("Don't look inside a proxy");
+   Tuple2 #( AXI4_Slave #( Wd_SId_3x4, Wd_Addr, Wd_Data
+                         , Wd_AW_User, Wd_W_User, Wd_B_User
+                         , Wd_AR_User, Wd_R_User)
+           , AXI4_Master #( Wd_SId_3x4, Wd_Addr, 128
+                          , Wd_AW_User, Wd_W_User, Wd_B_User
+                          , Wd_AR_User, Wd_R_User) )
+     hlsWidthShim <- mkAXI4DataWidthShim_NarrowToWide(prxInHLS, prxOutHLS);
+   match {.hlsWidthShimS, .hlsWidthShimM} = hlsWidthShim;
+   mkConnection(hlsWidthShimM, hls.management);
+   let hls_slave = hlsWidthShimS;
+   let hls_master = hls.master;
+`else
+   HLSGroup#( `N_HLS
+            , Wd_MId_3x4, Wd_Addr, Wd_Data
+            , Wd_AW_User, Wd_W_User, Wd_B_User
+            , Wd_AR_User, Wd_R_User
+            , Wd_SId_3x4, Wd_Addr, Wd_Data
+            , Wd_AW_User, Wd_W_User, Wd_B_User
+            , Wd_AR_User, Wd_R_User
+            ) hls <- mkHLSGroup;
+   let hls_slave = hls.management;
+   let hls_master = hls.master;
+`endif
+
+   // ================================================================
+   // Connect the local 3x4 fabric
+
+   // Masters on the local 3x4 fabric
+   Vector#(Num_Masters_3x4,
+           AXI4_Master#( Wd_MId_3x4, Wd_Addr, Wd_Data
                        , Wd_AW_User, Wd_W_User, Wd_B_User
                        , Wd_AR_User, Wd_R_User)) master_vector = newVector;
-   //Vector#(Num_Masters_2x3, Near_Mem_Fabric_IFC) master_vector = newVector;
+   //Vector#(Num_Masters_3x4, Near_Mem_Fabric_IFC) master_vector = newVector;
    master_vector[cpu_dmem_master_num]         = cpu.mem_master;
    master_vector[debug_module_sba_master_num] = dm_master_local;
+   master_vector[hls_master_num]              = hls_master;
 
-   // Slaves on the local 2x3 fabric
+   // Slaves on the local 3x4 fabric
    // default slave is forwarded out directly to the Core interface
-   Vector#(Num_Slaves_2x3,
-           AXI4_Slave#( Wd_SId_2x3, Wd_Addr, Wd_Data
+   Vector#(Num_Slaves_3x4,
+           AXI4_Slave#( Wd_SId_3x4, Wd_Addr, Wd_Data
                       , Wd_AW_User, Wd_W_User, Wd_B_User
                       , Wd_AR_User, Wd_R_User)) slave_vector = newVector;
    slave_vector[default_slave_num]     = axi4_mem_shim_slave;
    slave_vector[near_mem_io_slave_num] = zero_AXI4_Slave_user (near_mem_io.axi4_slave);
    slave_vector[plic_slave_num]        = zero_AXI4_Slave_user (plic.axi4_slave);
+   slave_vector[hls_slave_num]         = hls_slave;
 
-   function Vector#(Num_Slaves_2x3, Bool) route_2x3 (Bit#(Wd_Addr) addr);
-      Vector#(Num_Slaves_2x3, Bool) res = replicate(False);
+   function Vector#(Num_Slaves_3x4, Bool) route_3x4 (Bit#(Wd_Addr) addr);
+      Vector#(Num_Slaves_3x4, Bool) res = replicate(False);
       if (inRange(soc_map.m_near_mem_io_addr_range, addr))
         res[near_mem_io_slave_num] = True;
+      else if (   inRange(soc_map.m_hls_addr_range, addr)
+               || inRange(soc_map.m_hls_cap_checker_addr_range, addr) )
+        res[hls_slave_num] = True;
       else if (inRange(soc_map.m_plic_addr_range, addr))
         res[plic_slave_num] = True;
       else
@@ -440,7 +491,7 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
       return res;
    endfunction
 
-   mkAXI4Bus (route_2x3, master_vector, slave_vector);
+   mkAXI4Bus (route_3x4, master_vector, slave_vector);
 
    // ================================================================
    // Connect interrupt lines from near_mem_io and PLIC to CPU
@@ -641,21 +692,23 @@ endmodule
 
 
 // ================================================================
-// 2x3 Fabric for this Core
+// 3x4 Fabric for this Core
 // Masters: CPU DMem, Debug Module System Bus Access, External access
 
 // ----------------
 // Fabric port numbers for masters
 
-Master_Num_2x3  cpu_dmem_master_num         = 0;
-Master_Num_2x3  debug_module_sba_master_num = 1;
+Master_Num_3x4  cpu_dmem_master_num         = 0;
+Master_Num_3x4  debug_module_sba_master_num = 1;
+Master_Num_3x4  hls_master_num = 2;
 
 // ----------------
 // Fabric port numbers for slaves
 
-Slave_Num_2x3  default_slave_num     = 0;
-Slave_Num_2x3  near_mem_io_slave_num = 1;
-Slave_Num_2x3  plic_slave_num        = 2;
+Slave_Num_3x4  default_slave_num     = 0;
+Slave_Num_3x4  near_mem_io_slave_num = 1;
+Slave_Num_3x4  plic_slave_num        = 2;
+Slave_Num_3x4  hls_slave_num         = 3;
 
 // ================================================================
 
