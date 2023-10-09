@@ -222,52 +222,6 @@ instance MkHLS#( m_id_, 64, m_data_
   endmodule
 endinstance
 
-// helper functions
-////////////////////////////////////////////////////////////////////////////////
-
-typedef 8 CapIdxSz;
-
-function Tuple2#(Bit#(CapIdxSz), Bit#(addrSz)) extractCapIdx(Bit#(addrSz) x)
-  provisos (Add#(a__, CapIdxSz, addrSz));
-  Bit#(CapIdxSz) idx = truncateLSB(x);
-  Bit#(TSub#(addrSz, CapIdxSz)) addr = truncate(x);
-  return tuple2(idx, zeroExtend(addr));
-endfunction
-
-function AXI4_Master#(a, b, c, CapIdxSz, e, f, CapIdxSz, h)
-  mapAXI4_Master_extractCapIdx(AXI4_Master#(a, b, c, d, e, f, g, h)  m)
-  provisos(Add#(a__, CapIdxSz, b));
-  function AXI4_AWFlit#(a, b, CapIdxSz) fAW (AXI4_AWFlit#(a, b, d) x);
-    match {.user, .addr} = extractCapIdx(x.awaddr);
-    return AXI4_AWFlit { awid: x.awid
-                       , awaddr: addr
-                       , awlen: x.awlen
-                       , awsize: x.awsize
-                       , awburst: x.awburst
-                       , awlock: x.awlock
-                       , awcache: x.awcache
-                       , awprot: x.awprot
-                       , awqos: x.awqos
-                       , awregion: x.awregion
-                       , awuser: user };
-  endfunction
-  function AXI4_ARFlit#(a, b, CapIdxSz) fAR (AXI4_ARFlit#(a, b, g) x);
-    match {.user, .addr} = extractCapIdx(x.araddr);
-    return AXI4_ARFlit { arid: x.arid
-                       , araddr: addr
-                       , arlen: x.arlen
-                       , arsize: x.arsize
-                       , arburst: x.arburst
-                       , arlock: x.arlock
-                       , arcache: x.arcache
-                       , arprot: x.arprot
-                       , arqos: x.arqos
-                       , arregion: x.arregion
-                       , aruser: user };
-  endfunction
-  return mapAXI4_Master_AW(fAW, mapAXI4_Master_AR(fAR, m));
-endfunction
-
 // HLS group family of functions
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -392,6 +346,62 @@ instance MkHLSGroup#( n
 endinstance
 
 `ifdef HLS_CAP_CHECKER
+// helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+typedef 8 CapIdxSz;
+
+function Tuple2#(Bit#(CapIdxSz), Bit#(addrSz)) extractCapIdx(Bit#(addrSz) x)
+  provisos (Add#(a__, CapIdxSz, addrSz));
+  Bit#(CapIdxSz) idx = truncateLSB(x);
+  Bit#(TSub#(addrSz, CapIdxSz)) addr = truncate(x);
+  return tuple2(idx, zeroExtend(addr));
+endfunction
+
+function AXI4_Master#(a, b, c, CapIdxSz, e, f, CapIdxSz, h)
+  mapAXI4_Master_extractCapIdx( NumProxy#(n) prx
+                              , AXI4_Master#(a, b, c, d, e, f, g, h)  m )
+  provisos( Add#(a__, TLog#(n), a)
+          , Add#(b__, CapIdxSz, b) );
+  function AXI4_AWFlit#(a, b, CapIdxSz) fAW (AXI4_AWFlit#(a, b, d) x);
+
+    // XXX
+    // Here we assume that the HLS index within the HLS group is in the top
+    // log2(n) bits of the axi id field. A more general way to tackle this
+    // would possibly be to use the shrink method from the ExpandableReqRsp
+    // class to extract this information.
+    match {.user, .addr} = extractCapIdx(x.awaddr);
+    Bit#(TLog#(n)) hiCapIdx = truncateLSB(x.awid);
+    Bit#(TSub#(CapIdxSz, TLog#(n))) loCapIdx = truncate(user);
+    // XXX
+    return AXI4_AWFlit { awid: x.awid
+                       , awaddr: addr
+                       , awlen: x.awlen
+                       , awsize: x.awsize
+                       , awburst: x.awburst
+                       , awlock: x.awlock
+                       , awcache: x.awcache
+                       , awprot: x.awprot
+                       , awqos: x.awqos
+                       , awregion: x.awregion
+                       , awuser: {hiCapIdx, loCapIdx} };
+  endfunction
+  function AXI4_ARFlit#(a, b, CapIdxSz) fAR (AXI4_ARFlit#(a, b, g) x);
+    match {.user, .addr} = extractCapIdx(x.araddr);
+    return AXI4_ARFlit { arid: x.arid
+                       , araddr: addr
+                       , arlen: x.arlen
+                       , arsize: x.arsize
+                       , arburst: x.arburst
+                       , arlock: x.arlock
+                       , arcache: x.arcache
+                       , arprot: x.arprot
+                       , arqos: x.arqos
+                       , arregion: x.arregion
+                       , aruser: user };
+  endfunction
+  return mapAXI4_Master_AW(fAW, mapAXI4_Master_AR(fAR, m));
+endfunction
 // HLS group with cap checker
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -416,7 +426,7 @@ module mkHLSGroupWithCapChecker#( Range#(s_addr_) hls_mgnt_range
           , Add#(a__, 1, s_wuser_)
           , Add#(b__, 1, s_ruser_)
           , Add#(c__, 8, s_addr_)
-          , Add#(d__, 8, 64)
+          , Add#(d__, TLog#(n), m_id_)
           );
   // HLS group
   ////////////
@@ -455,7 +465,8 @@ module mkHLSGroupWithCapChecker#( Range#(s_addr_) hls_mgnt_range
   // internal connections
   ///////////////////////
   // from HLS to cap checker
-  mkConnection(mapAXI4_Master_extractCapIdx(groupM), capCheckS);
+  NumProxy#(n) nHLS = error("don't look inside a proxy");
+  mkConnection(mapAXI4_Master_extractCapIdx(nHLS, groupM), capCheckS);
   // demux management traffic
   let mgntShim <- mkAXI4Shim;
   let mappingTable = cons(hls_mgnt_range, cons(cap_checker_mgnt_range, nil));
