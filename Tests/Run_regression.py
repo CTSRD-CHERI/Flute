@@ -421,15 +421,20 @@ def do_isa_test (args_dict, full_filename):
 
     # Run command as a sub-process
     completed_process1 = run_command (command1)
-    completed_process2 = run_command (command2)
-    passed = completed_process2.stdout.find ("PASS") != -1
 
     # Save stdouts in log file
     log_filename = os.path.join (args_dict ['logs_path'], basename + ".log")
     message = message + ("    Writing log: {0}\n".format (log_filename))
-
     fd = open (log_filename, 'w')
     fd.write (completed_process1.stdout)
+    fd.close()
+    if completed_process1.returncode != 0:
+        return (message + "Error: elf_to_hex returned non-zero\n", False)
+
+    completed_process2 = run_command (command2)
+    passed = completed_process2.stdout.find ("PASS") != -1
+
+    fd = open (log_filename, 'a')
     fd.write (completed_process2.stdout)
     fd.close ()
 
