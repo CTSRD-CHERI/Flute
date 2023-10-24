@@ -22,7 +22,7 @@
 // #define MAX_MEM_SIZE (((uint64_t) 0x400) * ((uint64_t) 0x400) * ((uint64_t) 0x400))
 #define MAX_MEM_SIZE ((uint64_t) 0x90000000)
 
-uint8_t mem_buf [MAX_MEM_SIZE];
+uint8_t *mem_buf;
 
 // Features of the ELF binary
 int       bitwidth;
@@ -322,8 +322,11 @@ int main (int argc, char *argv [])
     }
 
     // Zero out the memory buffer before loading the ELF file
-    bzero (mem_buf, MAX_MEM_SIZE);
-    // bzero (& (mem_buf [BASE_ADDR_B]), MAX_MEM_SIZE - BASE_ADDR_B);
+    mem_buf = calloc(MAX_MEM_SIZE, sizeof(uint8_t));
+    if (mem_buf == NULL) {
+	fprintf (stderr, "ERROR: unable to allocate %lxMB for mem_buf\n", MAX_MEM_SIZE / 1024 / 1024);
+	return 1;
+    }
 
     c_mem_load_elf (argv [1], "_start", "exit", "tohost");
 
@@ -342,5 +345,6 @@ int main (int argc, char *argv [])
     write_mem_hex_file (fp_out, BASE_ADDR_B, max_addr);
     // write_mem_hex_file (fp_out, BASE_ADDR_B, MAX_MEM_ADDR_1GB);
 
+    free(mem_buf);
     fclose (fp_out);
 }
