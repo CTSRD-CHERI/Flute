@@ -52,7 +52,7 @@ interface DM_System_Bus_IFC;
 
    // ----------------
    // Facing System
-   interface AXI4_Master #( Wd_MId_2x3, Wd_Addr, Wd_Data_Periph
+   interface AXI4_Master #( Wd_MId_3x4, Wd_Addr, Wd_Data_Periph
                           , Wd_AW_User, Wd_W_User, Wd_B_User
                           , Wd_AR_User, Wd_R_User) master;
 endinterface
@@ -280,7 +280,7 @@ module mkDM_System_Bus (DM_System_Bus_IFC);
    function Action fa_fabric_send_read_req (Bit #(64)  addr64);
       action
 	 Fabric_Addr fabric_addr = truncate (addr64);
-	 let rda = AXI4_ARFlit {arid:     fabric_2x3_default_mid,
+	 let rda = AXI4_ARFlit {arid:     fabric_3x4_default_mid,
 				araddr:   fabric_addr,
 				arlen:    0,                      // burst len = arlen+1
 				arsize:   fn_DM_sbaccess_to_AXI4_Size (rg_sbcs_sbaccess),
@@ -321,7 +321,7 @@ module mkDM_System_Bus (DM_System_Bus_IFC);
 	 // fabric_strb identifies the lanes to be written
 	 // awsize is always the fabric width
 
-	 let wra = AXI4_AWFlit {awid:     fabric_2x3_default_mid,
+	 let wra = AXI4_AWFlit {awid:     fabric_3x4_default_mid,
 				awaddr:   fabric_addr,
 				awlen:    0,                      // burst len = awlen+1
 				awsize:   fabric_size,

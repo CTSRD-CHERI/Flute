@@ -132,7 +132,7 @@ interface Debug_Module_IFC;
    interface Client #(Bool, Bool) ndm_reset_client;
 
    // Read/Write RISC-V memory
-   interface AXI4_Master #( Wd_MId_2x3, Wd_Addr, Wd_Data_Periph
+   interface AXI4_Master #( Wd_MId_3x4, Wd_Addr, Wd_Data_Periph
                           , Wd_AW_User, Wd_W_User, Wd_B_User
                           , Wd_AR_User, Wd_R_User) master;
 endinterface

@@ -109,9 +109,10 @@ CORE_DIRS = $(REPO)/src_Core/CPU:$(REPO)/src_Core/ISA:$(REPO)/src_Core/RegFiles:
 
 CHERI_DIRS = $(REPO)/libs/cheri-cap-lib:$(REPO)/libs/TagController/TagController:$(REPO)/libs/TagController/TagController/CacheCore:$(REPO)/libs/BlueStuff/BlueUtils
 
-AXI_DIRS = $(REPO)/libs/BlueStuff/AXI:$(REPO)/libs/BlueStuff/BlueBasics:$(REPO)/libs/BlueStuff
+BLUESTUFFDIR = $(REPO)/libs/BlueStuff
+include $(REPO)/libs/BlueStuff/bluestuff.inc.mk
 
-BSC_PATH = $(CONTRIB_DIRS):$(CUSTOM_DIRS):src_BSV:$(CORE_DIRS):$(TESTBENCH_DIRS):$(AXI_DIRS):$(RVFI_DII_DIRS):$(CHERI_DIRS):+
+BSC_PATH = $(CONTRIB_DIRS):$(CUSTOM_DIRS):src_BSV:$(CORE_DIRS):$(TESTBENCH_DIRS):$(BLUESTUFF_DIRS):$(RVFI_DII_DIRS):$(CHERI_DIRS):+
 
 RISCV_HPM_Events_DIR = $(REPO)/libs/RISCV_HPM_Events
 

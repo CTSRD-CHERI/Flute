@@ -52,6 +52,7 @@ export  irq_num_quad_spi_0;
 export  irq_num_uart16550_1;
 export  irq_num_iic_0;
 export  irq_num_quad_spi_1;
+export  irq_num_hls;
 
 // ================================================================
 // Bluespec library imports
@@ -102,6 +103,8 @@ interface SoC_Map_IFC;
    (* always_ready *)   method  Range#(Wd_Addr)  m_boot_rom_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_ddr4_0_uncached_addr_range;
    (* always_ready *)   method  Range#(Wd_Addr)  m_ddr4_0_cached_addr_range;
+   (* always_ready *)   method  Range#(Wd_Addr)  m_hls_addr_range;
+   (* always_ready *)   method  Range#(Wd_Addr)  m_hls_cap_checker_addr_range;
 
    (* always_ready *)
    method  Bool  m_is_mem_addr (Fabric_Addr addr);
@@ -203,6 +206,24 @@ module mkSoC_Map (SoC_Map_IFC);
       base: 'h_6234_0000,
       size: 'h_0000_1000    // 4K
    };
+
+   // ----------------------------------------------------------------
+   // HLS
+
+   let hls_addr_range = Range {
+      base: 'hC001_0000,
+      size: 'h0001_0000
+   };
+
+   `ifdef HLS_CAP_CHECKER
+   // ----------------------------------------------------------------
+   // HLS CAP CHECKER
+
+   let hls_cap_checker_addr_range = Range {
+      base: 'hC002_0000,
+      size: 'h0000_2000
+   };
+   `endif
 
    // ----------------------------------------------------------------
    // I2C 0
@@ -307,6 +328,10 @@ module mkSoC_Map (SoC_Map_IFC);
 	      || inRange (gpio_1_addr_range, addr)
 	      || inRange (boot_rom_addr_range, addr)
 	      || inRange (ddr4_0_uncached_addr_range, addr)
+              || inRange(hls_addr_range, addr)
+              `ifdef HLS_CAP_CHECKER
+              || inRange(hls_cap_checker_addr_range, addr)
+              `endif
 	      );
    endfunction
 
@@ -356,6 +381,10 @@ module mkSoC_Map (SoC_Map_IFC);
    method  Range#(Wd_Addr)  m_boot_rom_addr_range = boot_rom_addr_range;
    method  Range#(Wd_Addr)  m_ddr4_0_uncached_addr_range = ddr4_0_uncached_addr_range;
    method  Range#(Wd_Addr)  m_ddr4_0_cached_addr_range = ddr4_0_cached_addr_range;
+   method  Range#(Wd_Addr)  m_hls_addr_range = hls_addr_range;
+   `ifdef HLS_CAP_CHECKER
+   method  Range#(Wd_Addr)  m_hls_cap_checker_addr_range = hls_cap_checker_addr_range;
+   `endif
 
    method  Bool  m_is_mem_addr (Fabric_Addr addr) = fn_is_mem_addr (addr);
 
@@ -390,6 +419,7 @@ Integer irq_num_quad_spi_0 = 4;
 Integer irq_num_uart16550_1 = 5;
 Integer irq_num_iic_0 = 6;
 Integer irq_num_quad_spi_1 = 7;
+Integer irq_num_hls = 8;
 
 // ================================================================
 
