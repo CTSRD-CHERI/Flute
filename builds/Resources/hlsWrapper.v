@@ -353,7 +353,7 @@ module mkHLS_Sig(CLK,
   // value method interrupt
   output interrupt;
 
-  vect_mult # (
+  hls_top # (
       .C_M_AXI_GMEM_ID_WIDTH(6),
       ) hls (
       .ap_clk(CLK),
