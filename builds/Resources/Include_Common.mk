@@ -118,6 +118,10 @@ ifdef HLS_CAP_CHECKER
 BSC_COMPILATION_FLAGS += -D HLS_CAP_CHECKER
 endif
 
+ifdef CAPCHECKER_UNFORGIVING
+BSC_COMPILATION_FLAGS += -D CAPCHECKER_UNFORGIVING
+endif
+
 # ================================================================
 # Runs simulation executable on ELF given by EXAMPLE
 

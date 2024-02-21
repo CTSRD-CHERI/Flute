@@ -338,8 +338,10 @@ instance MkHLSGroup#( n
     endfunction
     mkAXI4Bus(route_mgnt, cons(mgnt_shim.master, nil), map(get_mgnt, ifcs));
     mkAXI4Bus(constFn(cons(True, nil)), map(get_main, ifcs), cons(main_s, nil));
-    interface master = main_m;
-    interface management = mgnt_shim.slave;
+    interface master = debugAXI4_Master( main_m
+                                       , $format ("hls main axi4 master") );
+    interface management = debugAXI4_Slave( mgnt_shim.slave
+                                          , $format("hls management axi4 slave") );
     method interrupt = map(get_irq, ifcs);
 
   endmodule
