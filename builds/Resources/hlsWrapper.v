@@ -354,7 +354,7 @@ module mkHLS_Sig(CLK,
   output interrupt;
 
   hls_top # (
-      .C_M_AXI_GMEM_ID_WIDTH(6),
+      .C_M_AXI_GMEM_ID_WIDTH(6)
       ) hls (
       .ap_clk(CLK),
       .ap_rst_n(RST_N),
