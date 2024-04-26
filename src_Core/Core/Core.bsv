@@ -450,6 +450,8 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
    let hls_slave = hls.management;
    let hls_master = hls.master;
 `endif
+   hls_slave = debugAXI4_Slave(hls_slave, $format("hls group slave"));
+   hls_master = debugAXI4_Master(hls_master, $format("hls group master"));
 
    // ================================================================
    // Connect the local 3x4 fabric

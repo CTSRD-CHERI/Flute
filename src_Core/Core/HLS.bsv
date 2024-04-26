@@ -196,6 +196,7 @@ instance MkHLS#( m_id_, 64, m_data_
     let ctrlLite <-fromAXI4Lite_Slave_Sig(ifc_Sig.s_axi_control);
     AXI4_Slave#(s_id_, 64, 32, 0, 0, 0, 0, 0)
       ctrl <- mkAXI4LiteToAXI4_Slave(ctrlLite);
+    ctrl = debugAXI4_Slave(ctrl, $format("hls core slave (post WideToNarrow)"));
     NumProxy#(1)  prxMgntIn = error("don't look inside a proxy");
     NumProxy#(1) prxMgntOut = error("don't look inside a proxy");
     Tuple2#( AXI4_Slave#(s_id_, 64, s_data_, 0, 0, 0, 0, 0)
@@ -206,6 +207,7 @@ instance MkHLS#( m_id_, 64, m_data_
     let mgnt = zero_AXI4_Slave_user(mgntWidthS);
     // prepare main port
     let gmem <- fromAXI4_Master_Sig(ifc_Sig.m_axi_gmem);
+    gmem = debugAXI4_Master(gmem, $format("hls core master (pre NarrowToWide)"));
     NumProxy#(1)  prxMainIn = error("don't look inside a proxy");
     NumProxy#(1) prxMainOut = error("don't look inside a proxy");
     Tuple2#( AXI4_Slave#(1, 64, 32, 0, 0, 0, 0, 0)
@@ -216,8 +218,10 @@ instance MkHLS#( m_id_, 64, m_data_
     let main = zero_AXI4_Master_user(mainWidthM);
     main = prepend_AXI4_Master_id(0, main);
     // external interfaces
-    interface master = main;
-    interface management = mgnt;
+    interface master = debugAXI4_Master( main
+	                               , $format("hls core master (post NarrowToWide)") );
+    interface management = debugAXI4_Slave( mgnt
+	                                  , $format("hls core slave (pre WideToNarrow)"));
     method interrupt = ifc_Sig.interrupt;
   endmodule
 endinstance
@@ -339,7 +343,7 @@ instance MkHLSGroup#( n
     mkAXI4Bus(route_mgnt, cons(mgnt_shim.master, nil), map(get_mgnt, ifcs));
     mkAXI4Bus(constFn(cons(True, nil)), map(get_main, ifcs), cons(main_s, nil));
     interface master = debugAXI4_Master( main_m
-                                       , $format ("hls main axi4 master") );
+                                       , $format ("hls group main axi4 master") );
     interface management = debugAXI4_Slave( mgnt_shim.slave
                                           , $format("hls management axi4 slave") );
     method interrupt = map(get_irq, ifcs);
