@@ -461,8 +461,16 @@ module mkHLSGroupWithCapChecker#( Range#(s_addr_) hls_mgnt_range
     cap_checker <- mkAXI4_CapChecker(nCapPrxy);
   let capCheckS = debugAXI4_Slave( cap_checker.slave
                                  , $format("cap checker main axi4 slave") );
-  let capCheckM = debugAXI4_Master( cap_checker.master
-                                  , $format("cap checker main axi4 master") );
+
+  // JC: Add a buffer
+  let masterShim <- mkAXI4ShimFF;
+  mkConnection( debugAXI4_Master( cap_checker.master
+                                , $format ("cap checker main axi4 master") )
+               , masterShim. slave);
+  let capCheckM = masterShim.master;
+  // let capCheckM = debugAXI4_Master( cap_checker.master
+  //                                 , $format("cap checker main axi4 master") );
+
   let capCheckSMgnt = mapAXI4_Slave_user( id, truncate, id, id, zeroExtend
                                         , cap_checker.management );
   capCheckSMgnt =
