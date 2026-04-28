@@ -101,13 +101,17 @@ TOPMODULE ?= mkTop_HW_Side
 # ================================================================
 # bsc compilation flags
 
+# Detect if the compiler supports the new "let-gen" option
+MAYBE_LET_GEN:=$(shell bsc -let-gen 2>&1 | grep -q "Unrecognized" || echo -let-gen)
+
 BSC_COMPILATION_FLAGS += \
 	-D CheriBusBytes=8 -D SMALL_TAG_CACHE \
 	-D CheriMasterIDWidth=1 -D CheriTransactionIDWidth=5 \
 	-D RISCV -D BLUESIM \
 	-keep-fires -aggressive-conditions -no-warn-action-shadowing -no-show-timestamps -check-assert \
 	-suppress-warnings G0020    \
-	+RTS -K128M -RTS  -show-range-conflict
+	+RTS -K128M -RTS  -show-range-conflict \
+        $(MAYBE_LET_GEN)
 
 # ================================================================
 # Runs simulation executable on ELF given by EXAMPLE

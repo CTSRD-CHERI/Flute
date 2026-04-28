@@ -79,10 +79,14 @@ CUSTOM_DIRS = $(LLCACHE_DIR):$(PROCS_LIB_DIR):$(PROCS_OOO_DIR):$(COHERENCE_DIR)
 # ================================================================
 # bsc compilation flags
 
+# Detect if the compiler supports the new "let-gen" option
+MAYBE_LET_GEN:=$(shell bsc -let-gen 2>&1 | grep -q "Unrecognized" || echo -let-gen)
+
 BSC_COMPILATION_FLAGS += \
 	-keep-fires -aggressive-conditions -no-warn-action-shadowing -no-show-timestamps -check-assert \
 	-suppress-warnings G0020    \
-	+RTS -K128M -RTS  -show-range-conflict
+	+RTS -K128M -RTS  -show-range-conflict \
+        $(MAYBE_LET_GEN)
 
 # ================================================================
 # Search path for bsc for .bsv files
