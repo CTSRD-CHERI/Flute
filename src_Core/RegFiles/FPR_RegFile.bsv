@@ -19,6 +19,7 @@ import RegFile      :: *;
 import FIFOF        :: *;
 import GetPut       :: *;
 import ClientServer :: *;
+import GPR_RegFile :: *;
 
 
 // BSV additional libs
@@ -38,17 +39,17 @@ interface FPR_RegFile_IFC;
 
    // FPR read
    (* always_ready *)
-   method WordFL read_rs1 (RegName rs1);
+   method WordFL read_rs1 (RegAddr rs1);
    (* always_ready *)
-   method WordFL read_rs1_port2 (RegName rs1);    // For debugger access only
+   method WordFL read_rs1_port2 (RegAddr rs1);    // For debugger access only
    (* always_ready *)
-   method WordFL read_rs2 (RegName rs2);
+   method WordFL read_rs2 (RegAddr rs2);
    (* always_ready *)
-   method WordFL read_rs3 (RegName rs3);
+   method WordFL read_rs3 (RegAddr rs3);
 
    // FPR write
    (* always_ready *)
-   method Action write_rd (RegName rd, WordFL rd_val);
+   method Action write_rd (RegAddr rd, WordFL rd_val);
 
 endinterface
 
@@ -123,25 +124,35 @@ module mkFPR_RegFile (FPR_RegFile_IFC);
    endinterface
 
    // FPR read
-   method WordFL read_rs1 (RegName rs1);
-      return (regfile.sub (rs1));
+   //Compatibility
+   method WordFL read_rs1 (RegAddr rs1);
+      RegName rn = unpack(truncate(pack(rs1)));
+      return (regfile.sub (rn));
    endmethod
 
    // FPR read
-   method WordFL read_rs1_port2 (RegName rs1);        // For debugger access only
-      return (regfile.sub (rs1));
+   //Compatibility, todo: move into GPR
+   method WordFL read_rs1_port2 (RegAddr rs1);
+      RegName rn = unpack(truncate(pack(rs1)));
+      return (regfile.sub (rn));
    endmethod
 
-   method WordFL read_rs2 (RegName rs2);
-      return (regfile.sub (rs2));
+   //Compatibility
+   method WordFL read_rs2 (RegAddr rs2);
+      RegName rn = unpack(truncate(pack(rs2)));
+      return (regfile.sub (rn));
    endmethod
 
-   method WordFL read_rs3 (RegName rs3);
-      return (regfile.sub (rs3));
+   //Compatibility
+   method WordFL read_rs3 (RegAddr rs3);
+      RegName rn = unpack(truncate(pack(rs3)));
+      return (regfile.sub (rn));
    endmethod
 
    // FPR write
-   method Action write_rd (RegName rd, WordFL rd_val);
+   //Compatibility
+   method Action write_rd (RegAddr rd, WordFL rd_val);
+      RegName rd = unpack(truncate(pack(rd)));
       regfile.upd (rd, rd_val);
    endmethod
 

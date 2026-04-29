@@ -1341,7 +1341,7 @@ module mkCPU (CPU_IFC);
 	 // Writeback to GPR file
 	 let new_rd_val = scr_val;
 
-	 gpr_regfile.write_rd (rd, new_rd_val);
+	 gpr_regfile.write_rd (get_GPR_addr(rd), new_rd_val);
 
    CapPipe new_scr_val_unpacked = cast(scr_val);
 
@@ -1491,9 +1491,9 @@ module mkCPU (CPU_IFC);
 	 let new_rd_val = csr_val;
 
 `ifdef ISA_CHERI
-	 gpr_regfile.write_rd (rd, nullWithAddr(new_rd_val));
+	 gpr_regfile.write_rd (get_GPR_addr(rd), nullWithAddr(new_rd_val));
 `else
-	 gpr_regfile.write_rd (rd, new_rd_val);
+	 gpr_regfile.write_rd (get_GPR_addr(rd), new_rd_val);
 `endif
 
 	 // Writeback to CSR file
@@ -1631,9 +1631,9 @@ module mkCPU (CPU_IFC);
 	 // Writeback to GPR file
 	 let new_rd_val = csr_val;
 `ifdef ISA_CHERI
-	 gpr_regfile.write_rd (rd, nullWithAddr(new_rd_val));
+	 gpr_regfile.write_rd (get_GPR_addr(rd), nullWithAddr(new_rd_val));
 `else
-	 gpr_regfile.write_rd (rd, new_rd_val);
+	 gpr_regfile.write_rd (get_GPR_addr(rd), new_rd_val);
 `endif
 
 	 // Writeback to CSR file, but only if rs1 != 0

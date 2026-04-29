@@ -20,7 +20,7 @@ package GPR_RegFile;
 // ================================================================
 // Exports
 
-export GPR_RegFile_IFC (..), mkGPR_RegFile;
+export GPR_RegFile_IFC (..), mkGPR_RegFile, RegAddr, get_GPR_addr, reg_addr_to_name;
 
 // ================================================================
 // BSV library imports
@@ -46,6 +46,7 @@ import CHERICC_Fat :: *;
 
 // ================================================================
 
+`define REG_ADDR_SIZE 6 
 `ifdef ISA_CHERI
 `define INTERNAL_REG_TYPE CapReg
 `define EXTERNAL_REG_TYPE_OUT CapPipe
@@ -83,15 +84,15 @@ interface GPR_RegFile_IFC;
 
    // GPR read
    (* always_ready *)
-   method `EXTERNAL_REG_TYPE_OUT read_rs1 (RegName rs1);
+   method `EXTERNAL_REG_TYPE_OUT read_rs1 (RegAddr rs1);
    (* always_ready *)
-   method `EXTERNAL_REG_TYPE_OUT read_rs1_port2 (RegName rs1);    // For debugger access only
+   method `EXTERNAL_REG_TYPE_OUT read_rs1_port2 (RegAddr rs1);    // For debugger access only
    (* always_ready *)
-   method `EXTERNAL_REG_TYPE_OUT read_rs2 (RegName rs2);
+   method `EXTERNAL_REG_TYPE_OUT read_rs2 (RegAddr rs2);
 
    // GPR write
    (* always_ready *)
-   method Action write_rd (RegName rd, `EXTERNAL_REG_TYPE_IN rd_val
+   method Action write_rd (RegAddr rd, `EXTERNAL_REG_TYPE_IN rd_val
 `ifdef ISA_CHERI_MERGED
        , Bool is_cap_not_int   // Specifies whether the register is written back
                                // by a capability or integer operation. This is
@@ -104,8 +105,20 @@ endinterface
 // ================================================================
 // Major states of mkGPR_RegFile module
 
-typedef enum { RF_RESET_START, RF_RESETTING, RF_RUNNING } RF_State
-deriving (Eq, Bits, FShow);
+typedef enum { RF_RESET_START, RF_RESETTING, RF_RUNNING } RF_State deriving (Eq, Bits, FShow);
+typedef Bit#(`REG_ADDR_SIZE) RegAddr;
+
+
+// ================================================================
+// Address conversion
+function RegAddr get_GPR_addr(RegName name);
+   Bit#(`REG_ADDR_SIZE) addr = zeroExtend(name);
+   return addr;
+endfunction
+
+function Bit#(5) reg_addr_to_name(RegAddr addr);
+   return truncate(pack(addr));
+endfunction
 
 // ================================================================
 
@@ -119,7 +132,7 @@ module mkGPR_RegFile (GPR_RegFile_IFC);
 
    // General Purpose Registers
    // TODO: can we use Reg [0] for some other purpose?
-   RegFile #(RegName, `INTERNAL_REG_TYPE) regfile <- mkRegFileFull;
+   RegFile #(RegAddr, `INTERNAL_REG_TYPE) regfile <- mkRegFileFull;
 
    // ----------------------------------------------------------------
    // Reset.
@@ -129,7 +142,7 @@ module mkGPR_RegFile (GPR_RegFile_IFC);
    // Required for CHERI
 
 `ifdef INITIAL_CONTENTS
-   Reg #(RegName) rg_j <- mkRegU;    // reset loop index
+   Reg #(RegAddr) rg_j <- mkRegU;    // reset loop index
 `endif
 
    rule rl_reset_start (rg_state == RF_RESET_START);
@@ -173,21 +186,21 @@ module mkGPR_RegFile (GPR_RegFile_IFC);
    endinterface
 
    // GPR read
-   method `EXTERNAL_REG_TYPE_OUT read_rs1 (RegName rs1);
+   method `EXTERNAL_REG_TYPE_OUT read_rs1 (RegAddr rs1);
       return `CAST ((rs1 == 0) ? `ZERO_REG_CONTENTS : regfile.sub (rs1));
    endmethod
 
    // GPR read
-   method `EXTERNAL_REG_TYPE_OUT read_rs1_port2 (RegName rs1);        // For debugger access only
+   method `EXTERNAL_REG_TYPE_OUT read_rs1_port2 (RegAddr rs1);        // For debugger access only
       return `CAST ((rs1 == 0) ? `ZERO_REG_CONTENTS : regfile.sub (rs1));
    endmethod
 
-   method `EXTERNAL_REG_TYPE_OUT read_rs2 (RegName rs2);
+   method `EXTERNAL_REG_TYPE_OUT read_rs2 (RegAddr rs2);
       return `CAST ((rs2 == 0) ? `ZERO_REG_CONTENTS : regfile.sub (rs2));
    endmethod
 
    // GPR write
-   method Action write_rd (RegName rd, `EXTERNAL_REG_TYPE_IN rd_val);
+   method Action write_rd (RegAddr rd, `EXTERNAL_REG_TYPE_IN rd_val);
      if (rd != 0) regfile.upd (rd, `CAST (rd_val));
    endmethod
 

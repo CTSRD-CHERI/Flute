@@ -28,6 +28,7 @@
  */
 
 package Verifier;
+import GPR_RegFile      :: *;
 
 
 `ifdef INCLUDE_TANDEM_VERIF
@@ -70,9 +71,9 @@ function RVFI_DII_Execution #(XLEN,MEMWIDTH) getRVFIInfoCondensed(
         rvfi_rs1_addr:  s1.rs1_addr,
         rvfi_rs2_addr:  s1.rs2_addr,
 `ifdef ISA_F
-        rvfi_rd_addr:   data_s2_s3.rd_in_fpr ? 0 : (data_s2_s3.rd_valid ? data_s2_s3.rd : 0),
+        rvfi_rd_addr:   reg_addr_to_name(data_s2_s3.rd_in_fpr ? 0 : (data_s2_s3.rd_valid ? data_s2_s3.rd : 0)),
 `else
-        rvfi_rd_addr:   data_s2_s3.rd_valid ? data_s2_s3.rd : 0,
+        rvfi_rd_addr:   reg_addr_to_name(data_s2_s3.rd_valid ? data_s2_s3.rd : 0),
 `endif
         rvfi_rs1_data:  s1.rs1_data,
         rvfi_rs2_data:  s1.rs2_data,
@@ -137,7 +138,7 @@ function RVFI_DII_Execution #(XLEN,MEMWIDTH) getRVFIInfoS1 (
         rvfi_mem_addr:  s1.mem_addr,
         // Although we know what rd *would* be, the fact that we're using this function
         // means we can't have actually written to it.
-        rvfi_rd_addr:   data_s1_s2.rd,
+        rvfi_rd_addr:   reg_addr_to_name(data_s1_s2.rd),
         rvfi_rd_wdata:  fromMaybe(0, rwd),
         rvfi_mem_rmask: 0,
         rvfi_mem_wmask: 0,

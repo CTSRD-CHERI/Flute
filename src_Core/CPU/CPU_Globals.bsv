@@ -20,6 +20,7 @@ package CPU_Globals;
 // Project imports
 
 import ISA_Decls :: *;
+import GPR_RegFile :: *;
 
 `ifdef ISA_CHERI
 import CHERICap :: *;
@@ -127,7 +128,7 @@ deriving (Eq, Bits, FShow);
 
 typedef struct {
    Bypass_State  bypass_state;
-   RegName       rd;
+   RegAddr       rd;
 `ifdef ISA_CHERI
    CapPipe       rd_val;
 `else
@@ -152,7 +153,7 @@ endinstance
 `ifdef ISA_F
 typedef struct {
    Bypass_State  bypass_state;
-   RegName       rd;
+   RegAddr       rd;
    WordFL        rd_val;
    } FBypass
 deriving (Bits);
@@ -190,9 +191,9 @@ FBypass no_fbypass = FBypass {bypass_state: BYPASS_RD_NONE,
 // 'busy' means that the RegName is valid and matches, but the value is not available yet
 
 `ifdef ISA_CHERI
-function Tuple2 #(Bool, CapPipe) fn_gpr_bypass (Bypass bypass, RegName rd, CapPipe rd_val);
+function Tuple2 #(Bool, CapPipe) fn_gpr_bypass (Bypass bypass, RegAddr rd, CapPipe rd_val);
 `else
-function Tuple2 #(Bool, Word) fn_gpr_bypass (Bypass bypass, RegName rd, Word rd_val);
+function Tuple2 #(Bool, Word) fn_gpr_bypass (Bypass bypass, RegAddr rd, Word rd_val);
 `endif
    Bool busy = ((bypass.bypass_state == BYPASS_RD) && (bypass.rd == rd));
    let val = (  ((bypass.bypass_state == BYPASS_RD_RDVAL) && (bypass.rd == rd))
@@ -206,7 +207,7 @@ endfunction
 // Returns '(busy, val)'
 // 'busy' means that the RegName is valid and matches, but the value is not available yet
 
-function Tuple2 #(Bool, WordFL) fn_fpr_bypass (FBypass bypass, RegName rd, WordFL rd_val);
+function Tuple2 #(Bool, WordFL) fn_fpr_bypass (FBypass bypass, RegAddr rd, WordFL rd_val);
    Bool busy = ((bypass.bypass_state == BYPASS_RD) && (bypass.rd == rd));
    WordFL val= (  ((bypass.bypass_state == BYPASS_RD_RDVAL) && (bypass.rd == rd))
 		? bypass.rd_val
@@ -571,7 +572,7 @@ typedef struct {
    Dii_Id instr_seq;
 `endif
    Op_Stage2  op_stage2;
-   RegName    rd;
+   RegAddr    rd;
    Addr       addr;     // Branch, jump: newPC
                         // Mem ops and AMOs: mem addr
 
@@ -755,7 +756,7 @@ typedef struct {
    Priv_Mode priv;
 
    Bool      rd_valid;
-   RegName   rd;
+   RegAddr   rd;
    Pipeline_Val#(CapReg) rd_val;
 
 `ifdef RVFI
